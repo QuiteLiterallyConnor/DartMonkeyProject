@@ -7,6 +7,7 @@
 #include <map>
 #include <string>
 #include <functional>
+#include <ArduinoJson.h>
 
 #include "ServoController.h"
 #include "ESCController.h"
@@ -39,7 +40,6 @@ public:
 private:
 };
 
-
 class SerialController {
 public:
     struct Command {
@@ -63,6 +63,16 @@ private:
     bool isValidCommand(const std::string& cmd);
     void handleCommand(const std::string& cmd);
     void handleMetaCommand(const std::string& cmd);
+};
+
+class ExecutiveController {
+public:
+    void initialize();
+
+private:
+    int loadConfig();
+    const char* getConfigJsonString();
+    StaticJsonDocument<500> doc;
 };
 
 #endif

@@ -1,32 +1,51 @@
 $(document).ready(function() {
     const ws = new WebSocket("ws://localhost:8080/ws");
     let powerLevel = 0; // To keep track of the power level for the SX command
+    let intervalID; // To store the interval ID
+
+    // Limits
+    const MAX_ANGLE = 90;
+    const MIN_ANGLE = -90;
+    const MAX_SPEED = 100;
+    const MIN_SPEED = 0;
 
     ws.onopen = function() {
         console.log('Connected to the WebSocket');
+
+        // Set an interval to send the 'H' command every 5 seconds
+        intervalID = setInterval(function() {
+            ws.send('H');
+        }, 5000);
+    };
+
+    ws.onclose = function() {
+        console.log('WebSocket connection closed');
+
+        // Clear the interval when the WebSocket disconnects
+        clearInterval(intervalID);
     };
 
     ws.onmessage = function(e) {
-        $('#messages').append(`<p>${e.data}</p>`);
-        $('#messages').scrollTop($('#messages')[0].scrollHeight); // Auto scroll to bottom
+        line = e.data
 
-        // Check for DEVICE_STATUS delimiter
-        if (e.data.includes('%%%_DEVICE_STATUS')) {
-            const lines = e.data.split('\n');
-            for (let line of lines) {
-                if (line.startsWith('X_SERVO_POS:')) {
-                    $('#xDisplay').text(line.split(':')[1].trim());
-                } else if (line.startsWith('Y_SERVO_POS:')) {
-                    $('#yDisplay').text(line.split(':')[1].trim());
-                } else if (line.startsWith('MOTOR_A_SERVO_POS:')) {
-                    $('#servoADisplay').text(line.split(':')[1].trim() + '°');
-                } else if (line.startsWith('MOTOR_B_SERVO_POS:')) {
-                    $('#servoBDisplay').text(line.split(':')[1].trim() + '°');
-                } else if (line.startsWith('MOTOR_SPEED:')) {
-                    $('#speedDisplay').text(line.split(':')[1].trim());
-                }
-            }
+        console.log("Got message: ")
+        console.log(line)
+
+        if (line.startsWith('%%%_X_SERVO_POS:')) {
+            $('#xDisplay').text(line.split(':')[1].trim()+ '°');
+        } else if (line.startsWith('%%%_Y_SERVO_POS:')) {
+            $('#yDisplay').text(line.split(':')[1].trim()+ '°');
+        } else if (line.startsWith('%%%_MOTOR_A_SERVO_POS:')) {
+            $('#servoADisplay').text(line.split(':')[1].trim() + '°');
+        } else if (line.startsWith('%%%_MOTOR_B_SERVO_POS:')) {
+            $('#servoBDisplay').text(line.split(':')[1].trim() + '°');
+        } else if (line.startsWith('%%%_MOTORS_SPEED:')) {
+            $('#speedDisplay').text(line.split(':')[1].trim());
+        } else {
+            $('#messages').append(`<p>${e.data}</p>`);
+            $('#messages').scrollTop($('#messages')[0].scrollHeight); // Auto scroll to bottom    
         }
+        
     };
 
     $('#sendButton').click(function() {
@@ -65,10 +84,10 @@ $(document).ready(function() {
                 valueToSet = $('#servoBDisplay').text().replace('°', '');
                 break;
             case 'xAxis':
-                valueToSet = $('#xDisplay').text();
+                valueToSet = $('#xDisplay').text().replace('°', '');
                 break;
             case 'yAxis':
-                valueToSet = $('#yDisplay').text();
+                valueToSet = $('#yDisplay').text().replace('°', '');
                 break;
             case 'speed':
                 valueToSet = $('#speedDisplay').text();
@@ -118,35 +137,47 @@ $(document).ready(function() {
 
     // Gamepad Controls
     $('#upButton').click(function() {
-        ws.send('Y5');
-        updateDisplay('yDisplay', 5);
+        if (parseInt($('#yDisplay').text()) + 5 <= MAX_ANGLE) {
+            ws.send('Y5');
+            updateDisplay('yDisplay', 5);
+        }
     });
 
     $('#downButton').click(function() {
-        ws.send('Y-5');
-        updateDisplay('yDisplay', -5);
+        if (parseInt($('#yDisplay').text()) - 5 >= MIN_ANGLE) {
+            ws.send('Y-5');
+            updateDisplay('yDisplay', -5);
+        }
     });
 
     $('#leftButton').click(function() {
-        ws.send('X-5');
-        updateDisplay('xDisplay', -5);
+        if (parseInt($('#xDisplay').text()) - 5 >= MIN_ANGLE) {
+            ws.send('X-5');
+            updateDisplay('xDisplay', -5);
+        }
     });
 
     $('#rightButton').click(function() {
-        ws.send('X5');
-        updateDisplay('xDisplay', 5);
+        if (parseInt($('#xDisplay').text()) + 5 <= MAX_ANGLE) {
+            ws.send('X5');
+            updateDisplay('xDisplay', 5);
+        }
     });
 
     $('#powerUp').click(function() {
-        powerLevel += 5;
-        ws.send('S' + powerLevel);
-        $('#speedDisplay').text(powerLevel);
+        if (powerLevel + 5 <= MAX_SPEED) {
+            powerLevel += 5;
+            ws.send('S' + powerLevel);
+            $('#speedDisplay').text(powerLevel);
+        }
     });
 
     $('#powerDown').click(function() {
-        powerLevel -= 5;
-        ws.send('S' + powerLevel);
-        $('#speedDisplay').text(powerLevel);
+        if (powerLevel - 5 >= MIN_SPEED) {
+            powerLevel -= 5;
+            ws.send('S' + powerLevel);
+            $('#speedDisplay').text(powerLevel);
+        }
     });
 
     $('#servoSlider').on('input', function() {
@@ -193,26 +224,4 @@ $(document).ready(function() {
         $('#' + elementId).text(currentVal + value);
     }
 
-    ws.onmessage = function(e) {
-        $('#messages').append(`<p>${e.data}</p>`);
-        $('#messages').scrollTop($('#messages')[0].scrollHeight); // Auto scroll to bottom
-
-        // Check for DEVICE_STATUS delimiter
-        if (e.data.includes('%%%_DEVICE_STATUS')) {
-            const lines = e.data.split('\n');
-            for (let line of lines) {
-                if (line.startsWith('X_SERVO_POS:')) {
-                    $('#xDisplay').text(line.split(':')[1].trim());
-                } else if (line.startsWith('Y_SERVO_POS:')) {
-                    $('#yDisplay').text(line.split(':')[1].trim());
-                } else if (line.startsWith('MOTOR_A_SERVO_POS:')) {
-                    $('#servoADisplay').text(line.split(':')[1].trim() + '°');
-                } else if (line.startsWith('MOTOR_B_SERVO_POS:')) {
-                    $('#servoBDisplay').text(line.split(':')[1].trim() + '°');
-                } else if (line.startsWith('MOTOR_SPEED:')) {
-                    $('#speedDisplay').text(line.split(':')[1].trim());
-                }
-            }
-        }
-    };
 });

@@ -1,6 +1,7 @@
 #include "ExecutiveController.h"
 #include "TinyIRReceiver.hpp"
 
+ExecutiveController executiveController;
 ESCController motorController;
 ServoController xRotationController;
 ServoController yRotationController;
@@ -10,22 +11,24 @@ IRController irController;
 SerialController serialController;
 
 void print_status() {
-  Serial.println("%%%_DEVICE_STATUS");
-  Serial.print("X_SERVO_POS:");
+  Serial.print("%%%_X_SERVO_POS:");
   Serial.println(xRotationController.getCurrentAngle());
-  Serial.print("Y_SERVO_POS:");
+  Serial.print("%%%_Y_SERVO_POS:");
   Serial.println(yRotationController.getCurrentAngle());
-  Serial.print("MOTOR_A_SERVO_POS:");
+  Serial.print("%%%_MOTOR_A_SERVO_POS:");
   Serial.println(motorAServoController.getCurrentAngle());
-  Serial.print("MOTOR_B_SERVO_POS:");
+  Serial.print("%%%_MOTOR_B_SERVO_POS:");
   Serial.println(motorBServoController.getCurrentAngle());
-  Serial.print("MOTOR_SPEED:");
+  Serial.print("%%%_MOTOR_SPEED:");
   Serial.println(motorController.getCurrentSpeed());
-  Serial.println("%%%");
 }
 
 void adam() {
+
   serialController.handleSerial();
+
+
+
 }
 
 std::map<int, IRController::Button> IRController::initializeIRButtonMap() {
@@ -62,7 +65,6 @@ std::map<std::string, SerialController::Command> SerialController::initializeCom
         {"B",  {"B servo",    [&](int value) { motorBServoController.setAngle(value);          return false; }, false, true }},
         {"S",  {"Speed",      [&](int value) { motorController.setSpeed(value);                return true;  }, true, false }},
         {"D",  {"Delay",      [&](int value) { delay(value);                                   return true;  }, true, false }},
-        {"P",  {"Ping",       [&](int value) { Serial.println("pong");                         return true;  }, true, false }},
         {"H",  {"Heartbeat",  [&](int value) { print_status();                                 return true;  }, true, false }}
     };
 }
@@ -73,13 +75,7 @@ void handleReceivedTinyIRData(uint16_t aAddress, uint8_t aButton, bool isRepeat)
 }
 
 void init_controllers() {
-    xRotationController.initialize(X_ROTATION_PIN);
-    yRotationController.initialize(Y_ROTATION_PIN);
-    motorAServoController.initialize(ROTOR_CONTROL_MOTOR_1_PIN);
-    motorBServoController.initialize(ROTOR_CONTROL_MOTOR_2_PIN);
-    motorController.initialize(ESC_OUTPUT_PIN);
-    irController.initialize(IR_INPUT_PIN, irController.initializeIRButtonMap());
-    serialController.initialize(serialController.initializeCommandMap());
+  executiveController.initialize();
 }
 
 void IRController::initialize(int pin, std::map<int, Button> btnMap) {
@@ -87,7 +83,7 @@ void IRController::initialize(int pin, std::map<int, Button> btnMap) {
     controller_pin = pin;
     buttonMap = btnMap;
     Serial.print("Ready to receive NEC IR signals at pin ");
-    Serial.println(IR_INPUT_PIN);
+    Serial.println(controller_pin);
 }
 
 void IRController::handleCommand(int btn, bool isRepeat) {
@@ -130,23 +126,33 @@ void SerialController::processSerialInput() {
     }
 }
 
-bool SerialController::isValidCommand(const std::string& command) {
-    if (command.empty()) return false;
-    if (command == "H") return true;
-    char commandType = command[0];
-    std::string valueString = command.substr(1);
+bool SerialController::isValidCommand(const std::string& cmd) {
+    if (cmd.empty()) return false;
+    if (cmd == "H") return true;
+    char commandType = cmd[0];
+    
+    if (!isalpha(commandType) || commandType < 'A' || commandType > 'Z') {
+        return false;
+    }
+
+    if (cmd.length() == 1) return false;
+    std::string valueString = cmd.substr(1);
     auto cmdMap = initializeCommandMap();
     if (cmdMap.find(std::string(1, commandType)) == cmdMap.end()) {
         return false;
     }
-    int value = std::stoi(valueString); // Will throw if not a valid integer
-    if (valueString.find('.') != std::string::npos) {
-        return false;
+
+    for (size_t i = 0; i < valueString.length(); ++i) {
+        char c = valueString[i];
+        if (!isdigit(c) && (c != '-' || i != 0)) return false;
     }
+
+    int value = std::stoi(valueString);
+    if (value == 0 && valueString != "0") return false;
+
     bool canBeNegative = cmdMap[std::string(1, commandType)].canBeNegative;
-    if (value < 0 && !canBeNegative) {
-        return false;
-    }
+    if (value < 0 && !canBeNegative) return false;
+
     return true;
 }
 
@@ -158,4 +164,46 @@ void SerialController::handleCommand(const std::string& cmd) {
         command.action(value);
         lastCommand = label;
     }
+}
+
+void ExecutiveController::initialize() {
+    if (loadConfig()) {
+      Serial.println("Failed to read in config json.");
+    }
+
+    Serial.println("Finished loading config json.");
+}
+
+int ExecutiveController::loadConfig() {
+    const char* jsonString = getConfigJsonString();
+    DeserializationError error = deserializeJson(doc, jsonString);
+
+    if (error) {
+      return 1;
+    }
+
+    xRotationController.initialize("X_SERVO", doc["X_SERVO"]);
+    yRotationController.initialize("Y_SERVO", doc["Y_SERVO"]);
+    motorAServoController.initialize("MOTOR_A_SERVO", doc["MOTOR_A_SERVO"]);
+    motorBServoController.initialize("MOTOR_B_SERVO", doc["MOTOR_B_SERVO"]);
+    motorController.initialize("MOTORS", doc["MOTORS_ESC"]);
+    irController.initialize(doc["IR_SENSOR"], irController.initializeIRButtonMap());
+    serialController.initialize(serialController.initializeCommandMap());
+
+    return 0;
+}
+
+const char* ExecutiveController::getConfigJsonString() {
+    return R"json(
+    {
+      "X_SERVO": { "pin": 5 },
+      "Y_SERVO": { "pin": 2 },
+      "MOTOR_A_SERVO": { "pin": 3 },
+      "MOTOR_B_SERVO": { "pin": 4 },
+      "MOTORS_ESC": { "pin": 66 },
+      "IR_SENSOR": { "pin": 6 }
+    }
+
+    )json";
+
 }

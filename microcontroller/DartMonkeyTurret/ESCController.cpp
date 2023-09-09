@@ -1,7 +1,8 @@
 #include "ESCController.h"
 
-void ESCController::initialize(int pin) {
-  controllerPin = pin;
+void ESCController::initialize(std::string n, StaticJsonDocument<500> config) {
+  name = n;
+  controllerPin = config["pin"];
   controller.attach(controllerPin);    
   sync();
   Serial.print("Ready to transmit ESC PWM signals at pin " );
@@ -18,10 +19,6 @@ int ESCController::getCurrentSpeed() const {
     return currentSpeed;
 }
 
-void ESCController::stop() {
-    controller.writeMicroseconds(STOP_PWM);
-}
-
 void ESCController::togglePower() {
     if (currentSpeed == 0) {
         currentSpeed = prevSpeed;
@@ -30,38 +27,30 @@ void ESCController::togglePower() {
         prevSpeed = currentSpeed;
         setSpeed(0);
     }
-    Serial.print("Motor A & B: ");
-    Serial.println(currentSpeed);
-
+    print();
 }
 
 void ESCController::setSpeed(int speed) {
-    if (speed == 0) {
-        controller.writeMicroseconds(IDLE_PWM);
-    } else {
-        controller.writeMicroseconds(speedToPulseWidth(speed));
-    }
-
+    (speed == 0) ? controller.writeMicroseconds(IDLE_PWM) : controller.writeMicroseconds(speedToPulseWidth(speed));
     currentSpeed = speed;
-    Serial.print("Motor A & B: ");
-    Serial.println(currentSpeed);
-
+    print();
 }
 
 void ESCController::changeSpeed(int delta) {
-  Serial.println("changing speed");
     if (currentSpeed + delta >= 0 && currentSpeed + delta <= 100) {
         currentSpeed += delta;
         setSpeed(currentSpeed);
     }
-    Serial.print("Motor A & B: ");
-    Serial.println(currentSpeed);
+    print();
 }
 
 int ESCController::speedToPulseWidth(int speed) const {
     return map(speed * 10, 0, 1000, LOWER_PWM_LIMIT, UPPER_PWM_LIMIT);
 }
 
-
-
-
+void ESCController::print() {
+    Serial.print("%%%_");
+    Serial.print(name.c_str());
+    Serial.print("_SPEED:");
+    Serial.println(currentSpeed);
+}

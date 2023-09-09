@@ -79,11 +79,14 @@ func serve_html() {
 	r := gin.Default()
 	r.ForwardedByClientIP = true
 
+	// Serve all static files inside the "static" folder
+	r.Static("/public", "./public")
+
 	var port *serial.Port
 	go checkArduinoConnection(&port)
 
 	r.GET("/", func(c *gin.Context) {
-		http.ServeFile(c.Writer, c.Request, "index.html")
+		http.ServeFile(c.Writer, c.Request, "./public/index.html")
 	})
 
 	r.GET("/ws", func(c *gin.Context) {

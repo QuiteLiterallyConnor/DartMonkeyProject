@@ -2,21 +2,24 @@
 #define ESCCONTROLLER_H
 
 #include <Arduino.h>
+#include <string>
 #include <iostream>
 #include "Servo.h"
+#include <ArduinoJson.h>
+
 
 class ESCController {
 public:
     ESCController() {}
-    void initialize(int pin);
+    void initialize(std::string n, StaticJsonDocument<500> config);
     void sync();
     int getCurrentSpeed() const;
-    void stop();
     void togglePower();
     void setSpeed(int speed);
     void changeSpeed(int delta);
 
 private:
+    std::string name;
     Servo controller;
     int controllerPin;
     int currentSpeed;
@@ -28,6 +31,7 @@ private:
     const int UPPER_PWM_LIMIT = 1900;
 
     int speedToPulseWidth(int speed) const;
+    void print();
 };
 
 #endif
