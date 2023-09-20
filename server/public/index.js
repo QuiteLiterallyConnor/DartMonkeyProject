@@ -1,5 +1,6 @@
 $(document).ready(function() {
-    const ws = new WebSocket("ws://localhost:8080/ws");
+    const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws";
+    const ws = new WebSocket(wsURL);
     let powerLevel = 0; // To keep track of the power level for the SX command
     let intervalID; // To store the interval ID
 
