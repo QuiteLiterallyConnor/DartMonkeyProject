@@ -8,6 +8,7 @@
 #include <string>
 #include <functional>
 #include <ArduinoJson.h>
+#include <TeensyThreads.h>
 
 #include "ServoController.h"
 #include "ESCController.h"
@@ -23,28 +24,11 @@ void adam();
 void handleReceivedTinyIRData(uint16_t aAddress, uint8_t aButton, bool isRepeat);
 void init_controllers();
 
-class IRController {
-public:
-    IRController() {};
-    struct Button {
-        std::string buttonName;
-        std::function<void()> action;
-        bool allowsRepeat;
-    };
-    int controller_pin;
-    std::map<int, Button> buttonMap;
-    std::map<int, IRController::Button> initializeIRButtonMap();
-    void initialize(int pin, std::map<int, Button> btnMap);
-    void handleCommand(int btn, bool isRepeat);
-
-private:
-};
-
 class SerialController {
 public:
     struct Command {
         std::string description;
-        std::function<bool(int)> action;  // Note the int argument for value
+        std::function<bool(std::string cmd)> action;  // Note the int argument for value
         bool allowsRepeat;
         bool canBeNegative;
     };
@@ -67,7 +51,7 @@ private:
 
 class ExecutiveController {
 public:
-    void initialize();
+    int initialize();
 
 private:
     int loadConfig();

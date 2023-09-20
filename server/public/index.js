@@ -13,9 +13,6 @@ $(document).ready(function() {
         console.log('Connected to the WebSocket');
 
         // Set an interval to send the 'H' command every 5 seconds
-        intervalID = setInterval(function() {
-            ws.send('H');
-        }, 5000);
     };
 
     ws.onclose = function() {
@@ -25,11 +22,45 @@ $(document).ready(function() {
         clearInterval(intervalID);
     };
 
+    let lastHeartbeatTime = Date.now();
+    let heartbeatInterval;
+
+    function updateHeartbeatTimer() {
+        const currentTime = Date.now();
+        const timeDiff = Math.floor((currentTime - lastHeartbeatTime) / 1000);
+        $('#heartbeatTimer').text(timeDiff + 's');
+
+        // If no heartbeat is received for more than 10 seconds, consider it disconnected
+        if (timeDiff > 10) {
+            $('#connectionStatus').removeClass('bg-success').addClass('bg-danger');
+            $('#connectionLabel').text('Disconnected');
+        }
+    }
+
+    // Start the heartbeat timer
+    heartbeatInterval = setInterval(updateHeartbeatTimer, 1000);
+
+    // When a message is received, check if it's a heartbeat
     ws.onmessage = function(e) {
         line = e.data
 
         console.log("Got message: ")
         console.log(line)
+
+        if (line.startsWith('%%')) {
+            processSystemMessage(line);
+        } else {
+            $('#messages').append(`<p>${e.data}</p>`);
+            $('#messages').scrollTop($('#messages')[0].scrollHeight);
+        }
+        
+    };
+
+    function processSystemMessage(line) {
+        lastHeartbeatTime = Date.now();
+        $('#connectionStatus').removeClass('bg-danger').addClass('bg-success');
+        $('#connectionLabel').text('Connected');
+
 
         if (line.startsWith('%%%_X_SERVO_POS:')) {
             $('#xDisplay').text(line.split(':')[1].trim()+ '°');
@@ -39,14 +70,15 @@ $(document).ready(function() {
             $('#servoADisplay').text(line.split(':')[1].trim() + '°');
         } else if (line.startsWith('%%%_MOTOR_B_SERVO_POS:')) {
             $('#servoBDisplay').text(line.split(':')[1].trim() + '°');
-        } else if (line.startsWith('%%%_MOTORS_SPEED:')) {
-            $('#speedDisplay').text(line.split(':')[1].trim());
+        } else if (line.startsWith('%%%_MOTOR_A_SPEED:')) {
+            $('#motorADisplay').text(line.split(':')[1].trim());
+        } else if (line.startsWith('%%%_MOTOR_B_SPEED:')) {
+            $('#motorBDisplay').text(line.split(':')[1].trim());
         } else {
-            $('#messages').append(`<p>${e.data}</p>`);
-            $('#messages').scrollTop($('#messages')[0].scrollHeight); // Auto scroll to bottom    
+            // Do something with non specified system messages
         }
-        
-    };
+
+    }
 
     $('#sendButton').click(function() {
         const command = $('#command').val().trim();
@@ -72,156 +104,56 @@ $(document).ready(function() {
         }
     });
 
-    function updateInputValue() {
-        const selectedStatus = $('#statusSelect').val();
-        let valueToSet = '';
-
-        switch (selectedStatus) {
-            case 'servoA':
-                valueToSet = $('#servoADisplay').text().replace('°', '');
-                break;
-            case 'servoB':
-                valueToSet = $('#servoBDisplay').text().replace('°', '');
-                break;
-            case 'xAxis':
-                valueToSet = $('#xDisplay').text().replace('°', '');
-                break;
-            case 'yAxis':
-                valueToSet = $('#yDisplay').text().replace('°', '');
-                break;
-            case 'speed':
-                valueToSet = $('#speedDisplay').text();
-                break;
-        }
-
-        $('#angleInput').val(valueToSet);
-    }
-
-    $('#statusSelect').change(function() {
-        console.log("Dropdown change detected."); // Debugging line
-
-        const selectedStatus = $(this).val();
-        let valueToSet = '';
-
-        console.log("Selected status:", selectedStatus); // Debugging line
-
-        switch (selectedStatus) {
-            case 'servoA':
-                valueToSet = $('#servoADisplay').text().split('°')[0]; // Split and take the numeric part
-                console.log("Servo A value:", valueToSet); // Debugging line
-                break;
-            case 'servoB':
-                valueToSet = $('#servoBDisplay').text().split('°')[0]; // Split and take the numeric part
-                console.log("Servo B value:", valueToSet); // Debugging line
-                break;
-            case 'xAxis':
-                valueToSet = $('#xDisplay').text();
-                console.log("X Axis value:", valueToSet); // Debugging line
-                break;
-            case 'yAxis':
-                valueToSet = $('#yDisplay').text();
-                console.log("Y Axis value:", valueToSet); // Debugging line
-                break;
-            case 'speed':
-                valueToSet = $('#speedDisplay').text();
-                console.log("Speed value:", valueToSet); // Debugging line
-                break;
-        }
-
-        $('#angleInput').val(valueToSet);
-        console.log("Input field set to:", $('#angleInput').val()); // Debugging line
-    });
-
-    // Initially update the input value based on the default selected status
-    updateInputValue();
-
     // Gamepad Controls
     $('#upButton').click(function() {
         if (parseInt($('#yDisplay').text()) + 5 <= MAX_ANGLE) {
-            ws.send('Y5');
-            updateDisplay('yDisplay', 5);
+            ws.send('YO5');
         }
     });
 
     $('#downButton').click(function() {
         if (parseInt($('#yDisplay').text()) - 5 >= MIN_ANGLE) {
-            ws.send('Y-5');
-            updateDisplay('yDisplay', -5);
+            ws.send('YO-5');
         }
     });
 
     $('#leftButton').click(function() {
         if (parseInt($('#xDisplay').text()) - 5 >= MIN_ANGLE) {
-            ws.send('X-5');
-            updateDisplay('xDisplay', -5);
+            ws.send('XO-5');
         }
     });
 
     $('#rightButton').click(function() {
         if (parseInt($('#xDisplay').text()) + 5 <= MAX_ANGLE) {
-            ws.send('X5');
-            updateDisplay('xDisplay', 5);
+            ws.send('XO5');
         }
     });
 
     $('#powerUp').click(function() {
-        if (powerLevel + 5 <= MAX_SPEED) {
-            powerLevel += 5;
-            ws.send('S' + powerLevel);
-            $('#speedDisplay').text(powerLevel);
-        }
+        ws.send('SO10');
     });
 
     $('#powerDown').click(function() {
-        if (powerLevel - 5 >= MIN_SPEED) {
-            powerLevel -= 5;
-            ws.send('S' + powerLevel);
-            $('#speedDisplay').text(powerLevel);
-        }
+        ws.send('SO-10');
     });
 
     $('#servoSlider').on('input', function() {
         const value = $(this).val();
-        ws.send('A' + value);
-        ws.send('B' + value);
-        $('#servoADisplay').text(value + '°');
-        $('#servoBDisplay').text(value + '°');
+        ws.send('AS' + value);
+        ws.send('BS' + value);
     });
 
     $('#setAngleButton').click(function() {
         const angle = $('#angleInput').val();
         if (angle) {
-            ws.send('A' + angle);
-            ws.send('B' + angle);
-            $('#servoADisplay').text(angle + '°');
-            $('#servoBDisplay').text(angle + '°');
+            ws.send('AO' + angle);
+            ws.send('BO' + angle);
         }
     });
 
-    $('#statusSelect').change(function() {
-        const selectedStatus = $(this).val();
-        switch (selectedStatus) {
-            case 'servoA':
-                $('#angleInput').val($('#servoADisplay').text().replace('°', ''));
-                break;
-            case 'servoB':
-                $('#angleInput').val($('#servoBDisplay').text().replace('°', ''));
-                break;
-            case 'xAxis':
-                $('#angleInput').val($('#xDisplay').text());
-                break;
-            case 'yAxis':
-                $('#angleInput').val($('#yDisplay').text());
-                break;
-            case 'speed':
-                $('#angleInput').val($('#speedDisplay').text());
-                break;
-        }
+    $('#pingButton').click(function() {
+        ws.send('H');
     });
 
-    function updateDisplay(elementId, value) {
-        const currentVal = parseInt($('#' + elementId).text());
-        $('#' + elementId).text(currentVal + value);
-    }
 
 });

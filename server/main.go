@@ -19,8 +19,9 @@ var upgrader = websocket.Upgrader{
 }
 
 var isConnected = false
+var HEARTBEAT_INTERVAL time.Duration = 3
 
-func handleWebSocket(port *serial.Port, c *gin.Context) {
+func handleWebSocket(port **serial.Port, c *gin.Context) { // Change port parameter to a double pointer
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		fmt.Println("Upgrade error:", err)
@@ -39,15 +40,17 @@ func handleWebSocket(port *serial.Port, c *gin.Context) {
 				fmt.Println("Read error:", err)
 				return
 			}
-			if messageType == websocket.TextMessage && isConnected {
-				msg := strings.TrimSpace(string(p)) + "\n"
-				port.Write([]byte(msg))
+
+			message := strings.TrimSpace(string(p))
+
+			if messageType == websocket.TextMessage {
+				(*port).Write([]byte(message + "\n"))
 			}
 		}
 	}()
 
 	// Loop for listening to messages from the Arduino if connected
-	reader := bufio.NewReader(port)
+	reader := bufio.NewReader(*port)
 	for isConnected {
 		line, _ := reader.ReadString('\n')
 		if len(line) > 0 {
@@ -62,14 +65,20 @@ func handleWebSocket(port *serial.Port, c *gin.Context) {
 
 func checkArduinoConnection(port **serial.Port) {
 	for {
-		if !isConnected {
+		if isConnected {
+			(*port).Write([]byte("H\n"))
+			time.Sleep(HEARTBEAT_INTERVAL * time.Second)
+		} else {
 			c := &serial.Config{Name: "COM3", Baud: 115200}
 			p, err := serial.OpenPort(c)
 			if err == nil {
+				fmt.Printf("is now connected :)\n")
 				isConnected = true
 				*port = p
 			} else {
-				time.Sleep(5 * time.Second)
+				fmt.Printf("is not connected :(\n")
+				isConnected = false
+				time.Sleep(1 * time.Second)
 			}
 		}
 	}
@@ -79,7 +88,6 @@ func serve_html() {
 	r := gin.Default()
 	r.ForwardedByClientIP = true
 
-	// Serve all static files inside the "static" folder
 	r.Static("/public", "./public")
 
 	var port *serial.Port
@@ -90,7 +98,7 @@ func serve_html() {
 	})
 
 	r.GET("/ws", func(c *gin.Context) {
-		handleWebSocket(port, c)
+		handleWebSocket(&port, c)
 	})
 
 	fmt.Println("Server started at http://localhost:8080")

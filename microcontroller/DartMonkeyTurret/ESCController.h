@@ -13,10 +13,11 @@ public:
     ESCController() {}
     void initialize(std::string n, StaticJsonDocument<500> config);
     void sync();
+    void handleGcodeCommand(std::string cmd);
     int getCurrentSpeed() const;
     void togglePower();
     void setSpeed(int speed);
-    void changeSpeed(int delta);
+    void offsetSpeed(int delta);
 
 private:
     std::string name;

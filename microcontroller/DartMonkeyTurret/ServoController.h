@@ -15,6 +15,7 @@ class ServoController {
 public:
     ServoController() {}
     void initialize(std::string n, StaticJsonDocument<500> config);
+    void handleGcodeCommand(std::string cmd);
     void changeAngle(int delta);
     void setAngle(int angle);
     int getCurrentAngle();
