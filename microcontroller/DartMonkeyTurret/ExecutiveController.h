@@ -56,7 +56,7 @@ public:
 private:
     int loadConfig();
     const char* getConfigJsonString();
-    StaticJsonDocument<500> doc;
+    StaticJsonDocument<512> doc;
 };
 
 #endif

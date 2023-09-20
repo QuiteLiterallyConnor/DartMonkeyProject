@@ -69,7 +69,7 @@ func checkArduinoConnection(port **serial.Port) {
 			(*port).Write([]byte("H\n"))
 			time.Sleep(HEARTBEAT_INTERVAL * time.Second)
 		} else {
-			c := &serial.Config{Name: "COM3", Baud: 115200}
+			c := &serial.Config{Name: "serial", Baud: 115200}
 			p, err := serial.OpenPort(c)
 			if err == nil {
 				fmt.Printf("is now connected :)\n")

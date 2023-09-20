@@ -1,7 +1,6 @@
 $(document).ready(function() {
     const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws";
     const ws = new WebSocket(wsURL);
-    let powerLevel = 0; // To keep track of the power level for the SX command
     let intervalID; // To store the interval ID
 
     // Limits
@@ -12,8 +11,6 @@ $(document).ready(function() {
 
     ws.onopen = function() {
         console.log('Connected to the WebSocket');
-
-        // Set an interval to send the 'H' command every 5 seconds
     };
 
     ws.onclose = function() {

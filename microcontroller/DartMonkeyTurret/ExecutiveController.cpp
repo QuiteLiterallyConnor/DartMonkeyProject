@@ -164,7 +164,6 @@ int ExecutiveController::loadConfig() {
     DeserializationError error = deserializeJson(doc, jsonString);
 
     if (error) {
-      Serial.println("Finished loading config json.");
       return 1;
     }
 
