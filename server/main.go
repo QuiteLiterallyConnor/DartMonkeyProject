@@ -54,6 +54,9 @@ func handleWebSocket(port **serial.Port, c *gin.Context) { // Change port parame
 	for isConnected {
 		line, _ := reader.ReadString('\n')
 		if len(line) > 0 {
+
+			fmt.Printf("message fron teensy: %v\n", line)
+
 			err = conn.WriteMessage(websocket.TextMessage, []byte(strings.TrimSpace(line)))
 			if err != nil {
 				fmt.Println("Write error:", err)
