@@ -41,11 +41,14 @@ const HEARTBEAT_INTERVAL = 3 * time.Second
 
 type Serial struct {
 	Port        *serial.Port
+	Port_Path   string
 	IsConnected bool
 }
 
 func NewSerial(comPort string) *Serial {
-	s := &Serial{}
+	s := &Serial{
+		Port_Path: comPort,
+	}
 	return s
 }
 
@@ -65,7 +68,7 @@ func (s *Serial) sendHeartbeat() {
 }
 
 func (s *Serial) tryConnect() {
-	c := &serial.Config{Name: "/dev/ttyACM0", Baud: 115200}
+	c := &serial.Config{Name: s.Port_Path, Baud: 115200}
 	p, err := serial.OpenPort(c)
 	if err == nil {
 		fmt.Printf("is now connected :)\n")
