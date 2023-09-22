@@ -103,7 +103,6 @@ void SerialController::processSerialInput() {
     }
 }
 
-
 bool SerialController::isValidCommand(const std::string& cmd) {
     if (cmd.empty()) return false;
     if (cmd == "H") return true;
@@ -140,9 +139,7 @@ bool SerialController::isValidCommand(const std::string& cmd) {
 
 void SerialController::handleCommand(const std::string& cmd) {
     std::string label = cmd.substr(0, 1);
-  
     std::string stdcmd = cmd;
-
     Command& command = commandMap[label];
     if (lastCommand != label || (lastCommand == label && command.allowsRepeat)) {
         command.action(stdcmd);
@@ -155,7 +152,6 @@ int ExecutiveController::initialize() {
       Serial.println("Failed to load config");
       return 1;
     }
-
     return 0;
 }
 
