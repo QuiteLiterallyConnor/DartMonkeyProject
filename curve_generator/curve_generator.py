@@ -62,7 +62,6 @@ def save_to_gcode_file(filename, delayValues, values):
 
 def generate_filename(args):
     filename = f"{args.curve_type}_{args.curve_shape}_Intensity{args.intensity}_Begin{args.start_value}_End{args.end_value}.gcode"
-    # Replacing forward and backward slashes with underscores for compatibility
     filename = filename.replace('/', '_').replace('\\', '_')
     return filename
 

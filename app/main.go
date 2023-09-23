@@ -118,6 +118,8 @@ func (c *CameraServer) Start() error {
 		return fmt.Errorf("server already running")
 	}
 	c.Cmd = exec.Command("python", "camera_server.py", c.Port)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	return c.Cmd.Start()
 }
 
@@ -252,7 +254,7 @@ func main() {
 	for _, config := range configs {
 		server := NewServer(config)
 		go server.ServeHTML() // Start each server in its goroutine
-		go server.Camera.Start()
+		server.Camera.Start()
 	}
 
 	select {} // prevent main from exiting
