@@ -1,26 +1,26 @@
-import cv2
 from flask import Flask, Response
+import cv2
+import sys
 
 app = Flask(__name__)
 
-# Open the camera
-camera = cv2.VideoCapture(0)  # 0 is the default camera, you can change it if you have multiple cameras
+# Open the webcam
+video_capture = cv2.VideoCapture(1)
 
-def generate():
+def generate_frames():
     while True:
-        success, frame = camera.read()
+        success, frame = video_capture.read()  # read the camera frame
         if not success:
             break
-        ret, jpeg = cv2.imencode('.jpg', frame)
-        if not ret:
-            continue
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n')
+        else:
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 @app.route('/stream')
-def video_feed():
-    return Response(generate(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+def video():
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(host='localhost', port=8081)  # Serve on all interfaces on port 8080
+    app.run(host='192.168.0.106', port=sys.argv[1])

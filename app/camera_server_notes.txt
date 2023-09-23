@@ -1,0 +1,2 @@
+pip install flask opencv-python-headless
+pip install flask

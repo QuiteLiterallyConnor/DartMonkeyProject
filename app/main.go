@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 type Config struct {
 	Name       string `json:"name"`
 	ComPort    string `json:"com_port"`
+	CameraPort string `json:"camera_port"`
 	ServerPort string `json:"server_port"`
 }
 
@@ -99,6 +101,49 @@ func (s *Serial) InitiateConnectionChecking() {
 	go s.checkConnection()
 }
 
+type CameraServer struct {
+	Port string
+	Cmd  *exec.Cmd
+}
+
+func NewCameraServer(comPort string) *CameraServer {
+	c := &CameraServer{
+		Port: comPort,
+	}
+	return c
+}
+
+func (c *CameraServer) Start() error {
+	if c.Cmd != nil && c.Cmd.Process != nil {
+		return fmt.Errorf("server already running")
+	}
+	c.Cmd = exec.Command("python", "camera_server.py")
+	return c.Cmd.Start()
+}
+
+func (c *CameraServer) Stop() error {
+	if c.Cmd != nil && c.Cmd.Process != nil {
+		err := c.Cmd.Process.Kill()
+		if err != nil {
+			return err
+		}
+		c.Cmd.Wait() // Ignore the error as it will return a non-nil error since we have killed the process
+		c.Cmd = nil
+		return nil
+	}
+	return fmt.Errorf("server not running")
+}
+
+func (c *CameraServer) Restart() error {
+	err := c.Stop()
+	if err != nil {
+		return fmt.Errorf("error stopping server: %v", err)
+	}
+	// Wait for a while to make sure everything is stopped before starting again
+	time.Sleep(1 * time.Second)
+	return c.Start()
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -107,13 +152,16 @@ var upgrader = websocket.Upgrader{
 
 type Server struct {
 	Serial *Serial
+	Camera *CameraServer
 	Config Config // Store the Config in the Server
 }
 
 func NewServer(config Config) *Server {
 	serial := NewSerial(config.ComPort)
+	camera := NewCameraServer(config.CameraPort)
 	return &Server{
 		Serial: serial,
+		Camera: camera,
 		Config: config,
 	}
 }
@@ -204,6 +252,7 @@ func main() {
 	for _, config := range configs {
 		server := NewServer(config)
 		go server.ServeHTML() // Start each server in its goroutine
+		go server.Camera.Start()
 	}
 
 	select {} // prevent main from exiting

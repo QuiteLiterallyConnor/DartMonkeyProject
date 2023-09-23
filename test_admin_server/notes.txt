@@ -1,0 +1,18 @@
+go version
+
+if echo $? != 0 {
+    tell the user that go is not installed, please install with "apt install golang", then exit
+}
+
+go mod init main.go
+go mod tidy
+go build -o bin main.go
+
+create a .bat and .sh file that run:
+
+./bin/main
+
+go run src/main.go
+
+
+NEXT, you need to refactor main.go's pathe to the restructure. ie data, public, etc
