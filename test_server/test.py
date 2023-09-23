@@ -1,0 +1,63 @@
+from flask import Flask, render_template, jsonify, request
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+import cv2
+import asyncio
+import threading
+import av
+
+app = Flask(__name__, template_folder='.')
+
+class VideoCamera:
+    def __init__(self, source=0):
+        self.video = cv2.VideoCapture(source)
+        self.video.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+        self.video.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+
+    def get_frame(self):
+        ret, frame = self.video.read()
+        return frame
+
+class VideoStreamReceiver(VideoStreamTrack):
+    def __init__(self, camera):
+        super().__init__()
+        self.camera = camera
+    
+    async def recv(self):
+        frame = self.camera.get_frame()
+        av_frame = av.VideoFrame.from_ndarray(frame, format="bgr24")
+        av_frame.pts = av_frame.time * 1000
+        return av_frame
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/offer", methods=["POST"])
+async def offer():
+    data = await request.get_json()
+    offer = RTCSessionDescription(sdp=data["sdp"], type=data["type"])
+
+    pc = RTCPeerConnection()
+    pc_id = "PeerConnection(%s)" % pc.signalingTransportId
+
+    camera = VideoCamera()
+    pc.addTrack(VideoStreamReceiver(camera))
+
+    await pc.setRemoteDescription(offer)
+    answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+
+    return jsonify({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
+
+
+def run():
+    app.run(host="0.0.0.0", port=5050)
+
+
+if __name__ == "__main__":
+    web_thread = threading.Thread(target=run)
+    web_thread.start()
+
+    asyncio.get_event_loop().run_forever()
