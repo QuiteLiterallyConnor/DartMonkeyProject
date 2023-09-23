@@ -129,7 +129,7 @@ func (c *CameraServer) Stop() error {
 		if err != nil {
 			return err
 		}
-		c.Cmd.Wait() // Ignore the error as it will return a non-nil error since we have killed the process
+		c.Cmd.Wait()
 		c.Cmd = nil
 		return nil
 	}
@@ -141,7 +141,6 @@ func (c *CameraServer) Restart() error {
 	if err != nil {
 		return fmt.Errorf("error stopping server: %v", err)
 	}
-	// Wait for a while to make sure everything is stopped before starting again
 	time.Sleep(1 * time.Second)
 	return c.Start()
 }
@@ -155,7 +154,7 @@ var upgrader = websocket.Upgrader{
 type Server struct {
 	Serial *Serial
 	Camera *CameraServer
-	Config Config // Store the Config in the Server
+	Config Config
 }
 
 func NewServer(config Config) *Server {
