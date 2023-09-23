@@ -118,8 +118,8 @@ func (c *CameraServer) Start() error {
 		return fmt.Errorf("server already running")
 	}
 	c.Cmd = exec.Command("python", "camera_server.py", c.Port)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	c.Cmd.Stdout = os.Stdout
+	c.Cmd.Stderr = os.Stderr
 	return c.Cmd.Start()
 }
 
