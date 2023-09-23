@@ -1,9 +1,9 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, jsonify, request, render_template
+import asyncio
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
 import cv2
-import asyncio
-import threading
 import av
+import threading
 
 app = Flask(__name__, template_folder='.')
 
@@ -38,17 +38,19 @@ def index():
 def offer():
     data = request.get_json()
     offer = RTCSessionDescription(sdp=data["sdp"], type=data["type"])
-
+    
     pc = RTCPeerConnection()
-
-    camera = VideoCamera()
-    pc.addTrack(VideoStreamReceiver(camera))
+    pc.addTrack(VideoStreamReceiver(VideoCamera()))
 
     loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(pc.setRemoteDescription(offer))
-    answer = loop.run_until_complete(pc.createAnswer())
-    loop.run_until_complete(pc.setLocalDescription(answer))
+
+    try:
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(pc.setRemoteDescription(offer))
+        answer = loop.run_until_complete(pc.createAnswer())
+        loop.run_until_complete(pc.setLocalDescription(answer))
+    finally:
+        loop.close()
 
     return jsonify({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
 
