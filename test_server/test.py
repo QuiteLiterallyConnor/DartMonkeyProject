@@ -35,22 +35,22 @@ def index():
 
 
 @app.route("/offer", methods=["POST"])
-async def offer():
-    data = await request.get_json()
+def offer():
+    data = request.get_json()
     offer = RTCSessionDescription(sdp=data["sdp"], type=data["type"])
 
     pc = RTCPeerConnection()
-    pc_id = "PeerConnection(%s)" % pc.signalingTransportId
 
     camera = VideoCamera()
     pc.addTrack(VideoStreamReceiver(camera))
 
-    await pc.setRemoteDescription(offer)
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(pc.setRemoteDescription(offer))
+    answer = loop.run_until_complete(pc.createAnswer())
+    loop.run_until_complete(pc.setLocalDescription(answer))
 
     return jsonify({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
-
 
 def run():
     app.run(host="0.0.0.0", port=5050)

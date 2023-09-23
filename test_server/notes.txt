@@ -1,1 +1,1 @@
-pip install aiortc opencv-python flask aiohttp
+pip install aiortc opencv-python flask aiohttp asgiref
