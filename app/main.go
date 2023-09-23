@@ -117,7 +117,7 @@ func (c *CameraServer) Start() error {
 	if c.Cmd != nil && c.Cmd.Process != nil {
 		return fmt.Errorf("server already running")
 	}
-	c.Cmd = exec.Command("python", "camera_server.py")
+	c.Cmd = exec.Command("python", "camera_server.py", c.Port)
 	return c.Cmd.Start()
 }
 
