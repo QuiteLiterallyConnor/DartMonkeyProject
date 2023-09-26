@@ -63,14 +63,14 @@ void blinkLED() {
 
 void init_controllers() {
   if (executiveController.initialize()) {
-    Serial.println("Failed to init executive controller");
+    Serial.println("%%%_ERR:EXEC_CONTROLLER:INIT_FAILED");
   }
 }
 
 void SerialController::initialize(std::map<std::string, Command> cmdMap) {
   commandMap = cmdMap;
   threads.addThread(blink_thread, 0);
-  Serial.println("Ready to receive serial commands");
+  Serial.println("%%%_");
 }
 
 void SerialController::handleSerial() {
@@ -88,16 +88,18 @@ void SerialController::processSerialInput() {
         if (incomingChar == '\n' || incomingChar == '\r') {
             inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\n'), inputBuffer.end());
             inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\r'), inputBuffer.end());
-            Serial.print("%%%_ACK_CMD:");
+            Serial.print("%%%_ACK:");
             Serial.println(inputBuffer.c_str());
             blinkLED();
 
             if (isValidCommand(inputBuffer)) {
+                Serial.println(inputBuffer.c_str());
                 handleCommand(inputBuffer);
             } else {
-                Serial.print("Error: Invalid command received?!");
+                Serial.print("%%%_ERR:INVALID_CMD");
                 Serial.println(inputBuffer.c_str());
             }
+
             inputBuffer = "";
         }
     }
@@ -149,7 +151,7 @@ void SerialController::handleCommand(const std::string& cmd) {
 
 int ExecutiveController::initialize() {
     if (loadConfig()) {
-      Serial.println("Failed to load config");
+      Serial.println("%%%_ERR:INVALID_CONFIG");
       return 1;
     }
     return 0;
@@ -182,8 +184,7 @@ const char* ExecutiveController::getConfigJsonString() {
       "MOTOR_A_SERVO": { "pin": 3 },
       "MOTOR_B_SERVO": { "pin": 4 },
       "MOTOR_A": { "pin": 5 },
-      "MOTOR_B": { "pin": 6 },
-      "IR_SENSOR": { "pin": 7 }
+      "MOTOR_B": { "pin": 6 }
     }
     )json";
 }

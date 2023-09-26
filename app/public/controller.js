@@ -1,5 +1,5 @@
 $(document).ready(function() {
-    const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws";
+    const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/controller/ws";
     const ws = new WebSocket(wsURL);
     let intervalID; // To store the interval ID
 

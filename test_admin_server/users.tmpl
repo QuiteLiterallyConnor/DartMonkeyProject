@@ -1,0 +1,24 @@
+<html>
+<head>
+	<title>Connected Users</title>
+	<script type="text/javascript">
+		document.addEventListener("DOMContentLoaded", function() {
+			var ws = new WebSocket("ws://localhost:8080/ws");
+			ws.onmessage = function(event) {
+				var data = JSON.parse(event.data);
+				var userList = document.getElementById("userList");
+				userList.innerHTML = "";
+				data.Users.forEach(function(user) {
+					var li = document.createElement("li");
+					li.appendChild(document.createTextNode("IP: " + user.IP + ", Location: " + user.Location));
+					userList.appendChild(li);
+				});
+			};
+		});
+	</script>
+</head>
+<body>
+	<h1>Connected Users</h1>
+	<ul id="userList"></ul>
+</body>
+</html>

@@ -4,14 +4,20 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/mssola/user_agent"
+	"github.com/oschwald/geoip2-golang"
 	"github.com/tarm/serial"
 )
 
@@ -23,7 +29,7 @@ type Config struct {
 }
 
 func readConfig() ([]Config, error) {
-	file, err := os.Open("config.json")
+	file, err := os.Open("config_windows.json")
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +43,195 @@ func readConfig() ([]Config, error) {
 	}
 
 	return configs, nil
+}
+
+type Admin struct {
+	clients  map[*websocket.Conn]*http.Request
+	upgrader websocket.Upgrader
+}
+
+func NewAdmin() *Admin {
+	return &Admin{
+		clients: make(map[*websocket.Conn]*http.Request),
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true // Adjust as needed for security
+			},
+		},
+	}
+}
+
+type ClientInfo struct {
+	Name           string `json:"name"`
+	IP             string `json:"ip"`
+	Device         string `json:"device"`
+	Browser        string `json:"browser"`
+	OS             string `json:"os"`
+	Country        string `json:"country"`
+	City           string `json:"city"`
+	Sessions       int    `json:"sessions"`
+	WindowLocation string `json:"windowLocation"`
+}
+
+func (a *Admin) handleConnections(c *gin.Context) {
+	ws, err := a.upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Printf("Failed to set websocket upgrade: %+v", err)
+		return
+	}
+	defer ws.Close()
+
+	log.Printf("New WebSocket connection from %s", c.ClientIP())
+
+	a.clients[ws] = c.Request
+	a.broadcastConnectedClients()
+
+	for {
+		messageType, _, err := ws.ReadMessage()
+		if err != nil {
+			log.Printf("WebSocket connection from %s closed", c.ClientIP())
+			delete(a.clients, ws)
+			a.broadcastConnectedClients()
+			break
+		}
+		ws.WriteMessage(messageType, []byte("Your message was received!"))
+	}
+}
+
+func (a *Admin) broadcastConnectedClients() {
+	clientInfos := make(map[string]ClientInfo)
+
+	for _, request := range a.clients {
+		validIP, country, city, err := getIPCityCountry(request.RemoteAddr)
+		if err != nil {
+			log.Printf("Error getting IP info: %v", err)
+			continue
+		}
+
+		info, exists := clientInfos[validIP]
+		if exists {
+			info.Sessions++
+			clientInfos[validIP] = info
+			continue
+		}
+
+		ua := user_agent.New(request.Header.Get("User-Agent"))
+		browser, _ := ua.Browser()
+		device, os := getDeviceOS(ua, request.Header.Get("User-Agent"))
+
+		clientInfos[validIP] = ClientInfo{
+			IP:       validIP,
+			Device:   device,
+			Browser:  browser,
+			OS:       os,
+			Country:  country,
+			City:     city,
+			Sessions: 1,
+		}
+	}
+
+	data := map[string]map[string]ClientInfo{"clients": clientInfos}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Println("Error marshaling data:", err)
+		return
+	}
+
+	for client := range a.clients {
+		if err := client.WriteMessage(websocket.TextMessage, jsonData); err != nil {
+			log.Printf("WebSocket error: %v", err)
+			client.Close()
+			delete(a.clients, client)
+		}
+	}
+}
+
+func getDeviceOS(ua *user_agent.UserAgent, userAgentHeader string) (string, string) {
+	device := "unknown"
+	os := ua.OS()
+	if strings.Contains(strings.ToLower(userAgentHeader), "mobile") {
+		device = "mobile"
+	} else if strings.Contains(strings.ToLower(userAgentHeader), "tablet") {
+		device = "tablet"
+	} else if strings.Contains(strings.ToLower(userAgentHeader), "windows") {
+		device = "desktop"
+	}
+	return device, os
+}
+
+func extractValidIP(raw_ip string) (string, error) {
+	ipv4Pattern := `^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})`
+	ipv6Pattern := `^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))`
+
+	ipv4Regex := regexp.MustCompile(ipv4Pattern)
+	ipv6Regex := regexp.MustCompile(ipv6Pattern)
+
+	if ipv4Match := ipv4Regex.FindString(raw_ip); ipv4Match != "" {
+		return ipv4Match, nil
+	}
+
+	if ipv6Match := ipv6Regex.FindString(raw_ip); ipv6Match != "" {
+		return ipv6Match, nil
+	}
+
+	return "", fmt.Errorf("No valid IPv4 or IPv6 found in %s", raw_ip)
+}
+
+func getIPCityCountry(rawIP string) (string, string, string, error) {
+	if strings.HasPrefix(rawIP, "[::1]") {
+		return rawIP, "Server", "Server", nil
+	}
+
+	ip, err := extractValidIP(rawIP)
+	if err != nil {
+		return rawIP, "Unknown", "Unknown", err
+	}
+
+	if isLocalIP(ip) {
+		fmt.Printf("%s is a local device", ip)
+		return ip, "Local Network", "Local Network", nil
+	} else {
+		fmt.Printf("%s is not a local device", ip)
+	}
+
+	db, err := geoip2.Open("GeoLite2-City.mmdb")
+	if err != nil {
+		log.Println("Error opening GeoIP database:", err)
+		return ip, "Unknown", "Unknown", err
+	}
+	defer db.Close()
+
+	record, err := db.City(net.ParseIP(ip))
+	if err != nil {
+		log.Println("Error looking up IP:", err)
+		return ip, "Unknown", "Unknown", err
+	}
+
+	return ip, record.City.Names["en"], record.Country.IsoCode, nil
+}
+
+func isLocalIP(ip string) bool {
+	localIPv4Ranges := []net.IPNet{
+		{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+		{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
+		{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
+	}
+
+	ipAddress := net.ParseIP(ip)
+
+	if ipAddress.To4() != nil {
+		for _, localRange := range localIPv4Ranges {
+			if localRange.Contains(ipAddress) {
+				return true
+			}
+		}
+	} else {
+		if ipAddress.IsLoopback() || ipAddress.IsLinkLocalUnicast() || ipAddress.IsLinkLocalMulticast() {
+			return true
+		}
+	}
+
+	return false
 }
 
 const HEARTBEAT_INTERVAL = 3 * time.Second
@@ -207,15 +402,29 @@ func (s *Server) listenToFrontend(conn *websocket.Conn) {
 }
 
 func (s *Server) listenToArduino(conn *websocket.Conn) {
+	if s.Serial == nil || s.Serial.Port == nil {
+		fmt.Println("Serial port is not initialized or connected")
+		return
+	}
+
+	reader := bufio.NewReader(s.Serial.Port)
 	for s.Serial.IsConnected {
-		line, err := s.Serial.Read()
+		line, err := reader.ReadString('\n') // Assuming '\n' as the delimiter. Adjust as needed.
 		if err != nil {
+			if err == io.EOF {
+				fmt.Println("Serial port is closed")
+				return
+			}
 			fmt.Println("Serial read error:", err)
 			continue
 		}
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
-			fmt.Println("Serial write error:", err)
-			return
+
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "%%%") {
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
+				fmt.Println("WebSocket write error:", err)
+				return
+			}
 		}
 	}
 }
@@ -224,19 +433,25 @@ func (s *Server) ServeHTML() {
 	r := gin.Default()
 	r.ForwardedByClientIP = true
 	r.Static("/public", "./public")
+	a := NewAdmin()
 
 	s.Serial.InitiateConnectionChecking()
 
-	r.GET("/", func(c *gin.Context) {
-		http.ServeFile(c.Writer, c.Request, "./public/index.html")
+	r.GET("/admin", func(c *gin.Context) {
+		c.File("./public/admin.html")
 	})
+	r.GET("/admin/ws", a.handleConnections)
 
-	r.GET("/ws", func(c *gin.Context) {
-		s.handleWebSocket(c)
-	})
-
-	r.GET("/config", func(c *gin.Context) {
+	r.GET("/admin/config", func(c *gin.Context) {
 		c.JSON(http.StatusOK, s.Config)
+	})
+
+	r.GET("/controller", func(c *gin.Context) {
+		http.ServeFile(c.Writer, c.Request, "./public/controller.html")
+	})
+
+	r.GET("/controller/ws", func(c *gin.Context) {
+		s.handleWebSocket(c)
 	})
 
 	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)

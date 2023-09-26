@@ -5,6 +5,7 @@ void ESCController::initialize(std::string n, StaticJsonDocument<500> config) {
   controllerPin = config["pin"];
   controller.attach(controllerPin);    
   sync();
+  Serial.print("%%%_INFO:");
   Serial.print(name.c_str());
   Serial.print(": Ready to transmit ESC PWM signals at pin " );
   Serial.println(controllerPin);

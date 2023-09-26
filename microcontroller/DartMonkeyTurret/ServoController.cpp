@@ -4,6 +4,7 @@ void ServoController::initialize(std::string n, StaticJsonDocument<500> config) 
   name = n;
   servoPin = config["pin"];
   servo.attach(servoPin);
+  Serial.print("%%%_INFO:");
   Serial.print(name.c_str());
   Serial.print(": Ready to transmit Servo PWM signals at pin " );
   Serial.println(servoPin);
@@ -25,7 +26,6 @@ void ServoController::changeAngle(int delta) {
   if (new_angle <= upper_angle_limit && new_angle >= lower_angle_limit) {
       setAngle(new_angle);
   }
-  print();
 }
 
 void ServoController::setAngle(int angle) {

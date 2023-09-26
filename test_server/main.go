@@ -1,45 +1,52 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"net/http"
+	"bufio"
+	"fmt"
+	"io"
+	"log"
+	"os"
+
+	"github.com/jacobsa/go-serial/serial"
 )
 
-const htmlPage = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>FLV Player</title>
-</head>
-<body>
-    <video id="videoElement" controls width="600" height="400"></video>
-    <script src="https://cdn.jsdelivr.net/npm/flv.js@1/dist/flv.min.js"></script>
-    <script>
-        if (flvjs.isSupported()) {
-            var videoElement = document.getElementById('videoElement');
-            var flvPlayer = flvjs.createPlayer({
-                type: 'flv',
-                url: 'http://127.0.0.1:7001/live/movie.flv'
-            });
-            flvPlayer.attachMediaElement(videoElement);
-            flvPlayer.load();
-        }
-    </script>
-</body>
-</html>
-`
-
 func main() {
-	router := gin.Default()
+	options := serial.OpenOptions{
+		PortName:        "COM3",
+		BaudRate:        115200, // Adjust to match the baud rate of your device
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 4,
+	}
 
-	router.GET("/", func(c *gin.Context) {
-		c.Header("Content-Type", "text/html")
-		c.String(http.StatusOK, htmlPage)
-	})
-
-	err := router.Run(":8080")
+	port, err := serial.Open(options)
 	if err != nil {
-		panic(err)
+		log.Fatalf("serial.Open: %v", err)
+	}
+	defer port.Close()
+
+	go func() { // Concurrent go routine to read from the serial port
+		buf := make([]byte, 128)
+		for {
+			n, err := port.Read(buf)
+			if err != nil {
+				if err == io.EOF {
+					fmt.Println("Port closed")
+					return
+				}
+				log.Fatalf("port.Read: %v", err)
+			}
+			fmt.Print(string(buf[:n]))
+		}
+	}()
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("Enter message to send: ")
+		text, _ := reader.ReadString('\n')
+		_, err = port.Write([]byte(text))
+		if err != nil {
+			log.Fatalf("port.Write: %v", err)
+		}
 	}
 }
