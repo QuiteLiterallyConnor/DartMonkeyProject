@@ -1,1 +1,0 @@
-python curve_generator.py --start_value 0 --end_value 100 --resolution 32 --curve_type ease_in_out --curve_shape cubic --intensity 2 --prefix M
