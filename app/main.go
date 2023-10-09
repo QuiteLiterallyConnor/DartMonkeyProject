@@ -4,14 +4,15 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -234,7 +235,7 @@ func isLocalIP(ip string) bool {
 	return false
 }
 
-const HEARTBEAT_INTERVAL = 3 * time.Second
+const HEARTBEAT_INTERVAL = 2 * time.Second
 
 type Serial struct {
 	Port        *serial.Port
@@ -347,18 +348,21 @@ var upgrader = websocket.Upgrader{
 }
 
 type Server struct {
-	Serial *Serial
-	Camera *CameraServer
-	Config Config
+	Serial      *Serial
+	Camera      *CameraServer
+	Config      Config
+	Connections map[*websocket.Conn]struct{}
+	Mu          sync.Mutex
 }
 
 func NewServer(config Config) *Server {
 	serial := NewSerial(config.ComPort)
 	camera := NewCameraServer(config.CameraPort)
 	return &Server{
-		Serial: serial,
-		Camera: camera,
-		Config: config,
+		Serial:      serial,
+		Camera:      camera,
+		Config:      config,
+		Connections: make(map[*websocket.Conn]struct{}),
 	}
 }
 
@@ -368,7 +372,16 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 		fmt.Println("Upgrade error:", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		s.Mu.Lock()
+		delete(s.Connections, conn)
+		s.Mu.Unlock()
+		conn.Close()
+	}()
+
+	s.Mu.Lock()
+	s.Connections[conn] = struct{}{}
+	s.Mu.Unlock()
 
 	s.notifyInitialConnectionStatus(conn)
 
@@ -401,6 +414,37 @@ func (s *Server) listenToFrontend(conn *websocket.Conn) {
 	}()
 }
 
+var SYSTEM_STATES = make(map[string]int)
+
+func (s *Server) updateStoredSystemState(input string) bool {
+	pattern := `%%%_(\w+):(-?\d+)`
+	re := regexp.MustCompile(pattern)
+	matches := re.FindStringSubmatch(input)
+	var isUpdated bool
+
+	if len(matches) == 3 {
+		key := matches[1]
+		value_str := matches[2]
+		value, err := strconv.Atoi(value_str)
+		if err != nil {
+			return isUpdated
+		}
+		if existingValue, ok := SYSTEM_STATES[key]; ok {
+			if value != existingValue {
+				isUpdated = true
+				SYSTEM_STATES[key] = value
+			} else {
+			}
+		} else {
+			SYSTEM_STATES[key] = value
+		}
+	} else {
+		// Handle other commands, ie %%%_ACK
+	}
+
+	return isUpdated
+}
+
 func (s *Server) listenToArduino(conn *websocket.Conn) {
 	if s.Serial == nil || s.Serial.Port == nil {
 		fmt.Println("Serial port is not initialized or connected")
@@ -408,25 +452,30 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 	}
 
 	reader := bufio.NewReader(s.Serial.Port)
+
 	for s.Serial.IsConnected {
 		line, err := reader.ReadString('\n') // Assuming '\n' as the delimiter. Adjust as needed.
 		if err != nil {
-			if err == io.EOF {
-				fmt.Println("Serial port is closed")
-				return
-			}
-			fmt.Println("Serial read error:", err)
 			continue
 		}
 
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "%%%") {
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
-				fmt.Println("WebSocket write error:", err)
-				return
+
+			if s.updateStoredSystemState(line) || line == "%%%_HEARTBEAT" {
+				s.Mu.Lock()
+				for conn := range s.Connections {
+					if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
+						fmt.Println("WebSocket write error:", err)
+						delete(s.Connections, conn)
+					}
+				}
+				s.Mu.Unlock()
 			}
 		}
+
 	}
+
 }
 
 func (s *Server) ServeHTML() {

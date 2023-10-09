@@ -34,14 +34,14 @@ void adam() {
 
 std::map<std::string, SerialController::Command> SerialController::initializeCommandMap() {
     return {
-        {"X",  {"X axis",     [&](std::string cmd) { xRotationController.handleGcodeCommand(cmd);            return true;  }, true, true  }},
-        {"Y",  {"Y axis",     [&](std::string cmd) { yRotationController.handleGcodeCommand(cmd);            return true;  }, true, true  }},
-        {"A",  {"A servo",    [&](std::string cmd) { motorAServoController.handleGcodeCommand(cmd);          return false; }, false, true }},  // You might need to define aServoController and motorAServoController
-        {"B",  {"B servo",    [&](std::string cmd) { motorBServoController.handleGcodeCommand(cmd);          return false; }, false, true }},
-        {"S",  {"Speed",      [&](std::string cmd) { motorAController.handleGcodeCommand(cmd);
-                                                     motorBController.handleGcodeCommand(cmd);                return true;  }, true, false }},
-        {"D",  {"Delay",      [&](std::string cmd) { delay(atoi(cmd.c_str()));                                   return true;  }, true, false }},
-        {"H",  {"Heartbeat",  [&](std::string cmd) { print_status();                                 return true;  }, true, false }}
+        {"HR",  {"Hard Restart",  [&](std::string cmd) { executiveController.Reset();                            return true;  }}},
+        {"X",  {"X axis",         [&](std::string cmd) { xRotationController.handleGcodeCommand(cmd);            return true;  }}},
+        {"Y",  {"Y axis",         [&](std::string cmd) { yRotationController.handleGcodeCommand(cmd);            return true;  }}},
+        {"AS",  {"A servo",       [&](std::string cmd) { motorAServoController.handleGcodeCommand(cmd);          return false; }}},
+        {"BS",  {"B servo",       [&](std::string cmd) { motorBServoController.handleGcodeCommand(cmd);          return false; }}},
+        {"AM",  {"A motor",       [&](std::string cmd) { motorBController.handleGcodeCommand(cmd);               return true;  }}},                                                    
+        {"BM",  {"B motor",       [&](std::string cmd) { motorBController.handleGcodeCommand(cmd);               return true;  }}},
+        {"H",  {"Heartbeat",      [&](std::string cmd) { Serial.println("%%%_HEARTBEAT"); print_status();        return true;  }}}
     };
 }
 
@@ -70,7 +70,7 @@ void init_controllers() {
 void SerialController::initialize(std::map<std::string, Command> cmdMap) {
   commandMap = cmdMap;
   threads.addThread(blink_thread, 0);
-  Serial.println("%%%_");
+  Serial.println("%%%_INFO:EXECUTIVE_CONTROLLER: Finished init");
 }
 
 void SerialController::handleSerial() {
@@ -93,10 +93,9 @@ void SerialController::processSerialInput() {
             blinkLED();
 
             if (isValidCommand(inputBuffer)) {
-                Serial.println(inputBuffer.c_str());
                 handleCommand(inputBuffer);
             } else {
-                Serial.print("%%%_ERR:INVALID_CMD");
+                Serial.print("%%%_ERR:INVALID_CMD:");
                 Serial.println(inputBuffer.c_str());
             }
 
@@ -107,7 +106,7 @@ void SerialController::processSerialInput() {
 
 bool SerialController::isValidCommand(const std::string& cmd) {
     if (cmd.empty()) return false;
-    if (cmd == "H") return true;
+    if (cmd == "H" || cmd == "R") return true;
     char commandType = cmd[0];
     if (!isalpha(commandType) || commandType < 'A' || commandType > 'Z') {
         return false;
@@ -143,10 +142,7 @@ void SerialController::handleCommand(const std::string& cmd) {
     std::string label = cmd.substr(0, 1);
     std::string stdcmd = cmd;
     Command& command = commandMap[label];
-    if (lastCommand != label || (lastCommand == label && command.allowsRepeat)) {
-        command.action(stdcmd);
-        lastCommand = label;
-    }
+    command.action(stdcmd);
 }
 
 int ExecutiveController::initialize() {
@@ -155,6 +151,10 @@ int ExecutiveController::initialize() {
       return 1;
     }
     return 0;
+}
+
+void ExecutiveController::Reset() {
+  SCB_AIRCR = 0x05FA0004; // Write a value to Application Interrupt and Reset Control Register
 }
 
 int ExecutiveController::loadConfig() {
@@ -179,10 +179,10 @@ int ExecutiveController::loadConfig() {
 const char* ExecutiveController::getConfigJsonString() {
     return R"json(
     {
-      "X_SERVO": { "pin": 1 },
-      "Y_SERVO": { "pin": 2 },
-      "MOTOR_A_SERVO": { "pin": 3 },
-      "MOTOR_B_SERVO": { "pin": 4 },
+      "X_SERVO": { "pin": 1, "speed": 30, "starting_angle": 45, "angle_limit": 120 },
+      "Y_SERVO": { "pin": 2, "speed": 50, "starting_angle": 45, "angle_limit": 90 },
+      "MOTOR_A_SERVO": { "pin": 3, "speed": 50, "starting_angle": 45, "angle_limit": 20 },
+      "MOTOR_B_SERVO": { "pin": 4, "speed": 50, "starting_angle": 45, "angle_limit": 20 },
       "MOTOR_A": { "pin": 5 },
       "MOTOR_B": { "pin": 6 }
     }

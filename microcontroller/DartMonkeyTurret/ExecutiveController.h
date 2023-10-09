@@ -9,7 +9,8 @@
 #include <functional>
 #include <ArduinoJson.h>
 #include <TeensyThreads.h>
-
+#include <stdint.h>
+#include <vector>
 #include "ServoController.h"
 #include "ESCController.h"
 
@@ -26,19 +27,18 @@ void init_controllers();
 
 class SerialController {
 public:
+
     struct Command {
         std::string description;
-        std::function<bool(std::string cmd)> action;  // Note the int argument for value
-        bool allowsRepeat;
-        bool canBeNegative;
+        std::function<bool(std::string cmd)> action;
     };
+
     SerialController() {}
     void initialize(std::map<std::string, Command> cmdMap);
     void handleSerial();
     std::map<std::string, SerialController::Command> initializeCommandMap();
 private:
     std::string inputBuffer;
-    std::string lastCommand;
     unsigned long lastCheckTime;
     const unsigned long checkInterval = 50;
     std::map<std::string, Command> commandMap;
@@ -52,7 +52,7 @@ private:
 class ExecutiveController {
 public:
     int initialize();
-
+    void Reset();
 private:
     int loadConfig();
     const char* getConfigJsonString();

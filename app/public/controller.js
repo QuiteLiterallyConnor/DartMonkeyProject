@@ -42,10 +42,9 @@ $(document).ready(function() {
     ws.onmessage = function(e) {
         line = e.data
 
-        console.log("Got message: ")
         console.log(line)
 
-        if (line.startsWith('%%')) {
+        if (line.startsWith('%%%')) {
             processSystemMessage(line);
         } else {
             $('#messages').append(`<p>${e.data}</p>`);
@@ -104,27 +103,19 @@ $(document).ready(function() {
 
     // Gamepad Controls
     $('#upButton').click(function() {
-        if (parseInt($('#yDisplay').text()) + 5 <= MAX_ANGLE) {
-            ws.send('YO5');
-        }
+        ws.send('YO5');
     });
 
     $('#downButton').click(function() {
-        if (parseInt($('#yDisplay').text()) - 5 >= MIN_ANGLE) {
-            ws.send('YO-5');
-        }
+        ws.send('YO-5');
     });
 
     $('#leftButton').click(function() {
-        if (parseInt($('#xDisplay').text()) - 5 >= MIN_ANGLE) {
-            ws.send('XO-5');
-        }
+        ws.send('XO5');
     });
 
     $('#rightButton').click(function() {
-        if (parseInt($('#xDisplay').text()) + 5 <= MAX_ANGLE) {
-            ws.send('XO5');
-        }
+        ws.send('XO-5');
     });
 
     $('#powerUp').click(function() {

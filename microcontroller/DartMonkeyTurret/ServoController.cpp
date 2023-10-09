@@ -3,7 +3,12 @@
 void ServoController::initialize(std::string n, StaticJsonDocument<500> config) {
   name = n;
   servoPin = config["pin"];
-  servo.attach(servoPin);
+  speed = config["speed"];
+  angle_limit = config["angle_limit"];
+  servo.attach(servoPin, config["starting_angle"]);
+
+  servo.setEasingType(EASE_CUBIC_IN_OUT);
+
   Serial.print("%%%_INFO:");
   Serial.print(name.c_str());
   Serial.print(": Ready to transmit Servo PWM signals at pin " );
@@ -18,20 +23,21 @@ void ServoController::handleGcodeCommand(std::string cmd) {
   } else if (actionType == 'O') {
     changeAngle(value);
   }
-
 }
 
 void ServoController::changeAngle(int delta) {
   int new_angle = currentAngle += delta;
-  if (new_angle <= upper_angle_limit && new_angle >= lower_angle_limit) {
+  if (new_angle <= angle_limit && new_angle >= 0) {
       setAngle(new_angle);
   }
 }
 
 void ServoController::setAngle(int angle) {
-  if (angle <= upper_angle_limit && angle >= lower_angle_limit) {
+  if (angle <= angle_limit && angle >= 0) {
+    servo.easeTo(angle, speed);
+    // servo.write(angle);
     currentAngle = angle;
-    servo.write(currentAngle);
+
   }
   print();
 }

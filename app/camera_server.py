@@ -5,7 +5,7 @@ import sys
 app = Flask(__name__)
 
 # Open the webcam
-video_capture = cv2.VideoCapture(1)
+video_capture = cv2.VideoCapture(0)
 
 def generate_frames():
     while True:

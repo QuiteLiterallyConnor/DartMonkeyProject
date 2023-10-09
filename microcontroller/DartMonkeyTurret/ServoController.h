@@ -6,6 +6,9 @@
 #include "Servo.h"
 #include <ArduinoJson.h>
 
+#define SUPPRESS_HPP_WARNING
+#include "EasingLib.h"
+
 #if !defined(STR_HELPER)
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -21,12 +24,13 @@ public:
     int getCurrentAngle();
     std::string getName();
 private:
-  Servo servo;
+  ServoEasing servo;
+  // Servo servo;
   std::string name;
   int servoPin;
+  int speed = 100;
   int currentAngle = 0;
-  int upper_angle_limit = 90;
-  int lower_angle_limit = -90;
+  int angle_limit = 90;
   void print();
 };
 
