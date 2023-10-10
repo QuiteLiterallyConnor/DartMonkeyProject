@@ -14,7 +14,7 @@ import (
 func MJPEGStream(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary=myboundary")
 
-	cmd := exec.Command("ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "image2pipe", "-vcodec", "mjpeg", "-")
+	cmd := exec.Command("ffmpeg", "-f", "v4l2", "-i", "/dev/video1", "-f", "image2pipe", "-vcodec", "mjpeg", "-")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Error starting ffmpeg")
