@@ -6,46 +6,45 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/faiface/pixel/pixelgl"
 	"github.com/gin-gonic/gin"
-	"gocv.io/x/gocv"
 )
 
 func main() {
-	r := gin.Default()
-
-	r.GET("/mjpeg", MJPEGStream)
-	r.GET("/", func(c *gin.Context) {
-		c.Header("Content-Type", "text/html")
-		c.String(http.StatusOK, `<img src="/mjpeg" />`)
-	})
-
-	r.Run(":8080")
+	go func() {
+		pixelgl.Run(func() {
+			r := gin.Default()
+			r.GET("/mjpeg", MJPEGStream)
+			r.GET("/", func(c *gin.Context) {
+				c.Header("Content-Type", "text/html")
+				c.String(http.StatusOK, `<img src="/mjpeg" />`)
+			})
+			r.Run(":8080")
+		})
+	}()
+	select {} // This will prevent the main function from exiting immediately
 }
 
 func MJPEGStream(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary=myboundary")
 
-	video, err := gocv.OpenVideoCapture(0) // 0 is the default camera index
+	cfg := pixelgl.DefaultCameraConfig
+	camera, err := pixelgl.NewCamera(cfg)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Error opening video capture")
+		c.String(http.StatusInternalServerError, "Error initializing camera")
 		return
 	}
-	defer video.Close()
-
-	img := gocv.NewMat()
-	defer img.Close()
+	defer camera.Close()
 
 	for {
-		if ok := video.Read(&img); !ok {
-			c.String(http.StatusInternalServerError, "Cannot read from video capture")
+		frame := camera.Update()
+		if frame == nil {
+			c.String(http.StatusInternalServerError, "Error reading frame from camera")
 			return
-		}
-		if img.Empty() {
-			continue
 		}
 
 		buf := new(bytes.Buffer)
-		if err := jpeg.Encode(buf, img.ToImage(), nil); err != nil {
+		if err := jpeg.Encode(buf, frame, nil); err != nil {
 			c.String(http.StatusInternalServerError, "Error encoding image")
 			return
 		}
