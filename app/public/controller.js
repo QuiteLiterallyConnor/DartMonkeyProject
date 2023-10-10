@@ -1,6 +1,7 @@
+const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/controller/ws";
+const ws = new WebSocket(wsURL);
+
 $(document).ready(function() {
-    const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/controller/ws";
-    const ws = new WebSocket(wsURL);
     let intervalID; // To store the interval ID
 
     // Limits
@@ -52,6 +53,27 @@ $(document).ready(function() {
         }
         
     };
+
+    const video = document.getElementById('video');
+    const liveButton = document.getElementById('liveButton');
+    
+    const hls = new Hls({
+        liveBackBufferLength: 3, // Keep only 3 seconds of content for back buffer
+        maxBufferLength: 5,     // Maximum buffer length of 5 seconds
+        maxBufferSize: 500000,  // Maximum buffer size in bytes
+        liveSyncDurationCount: 1 // Try to stay close to live
+    });
+
+    
+    hls.loadSource('/hls/playlist.m3u8');
+    hls.attachMedia(video);
+    
+    liveButton.addEventListener('click', function() {
+        if (video.duration) {
+            video.currentTime = video.duration; // Move to the most recent moment
+        }
+    });
+
 
     function processSystemMessage(line) {
         lastHeartbeatTime = Date.now();
@@ -118,27 +140,43 @@ $(document).ready(function() {
         ws.send('XO-5');
     });
 
-    $('#powerUp').click(function() {
-        ws.send('SO10');
+
+
+
+    $('#motorASpeedUp').click(function() {
+        ws.send("CO5")
     });
 
-    $('#powerDown').click(function() {
-        ws.send('SO-10');
+    $('#motorASpeedDown').click(function() {
+        ws.send("CO-5")
     });
 
-    $('#servoSlider').on('input', function() {
-        const value = $(this).val();
-        ws.send('AS' + value);
-        ws.send('BS' + value);
+    $('#motorBSpeedUp').click(function() {
+        ws.send("DO5")
     });
 
-    $('#setAngleButton').click(function() {
-        const angle = $('#angleInput').val();
-        if (angle) {
-            ws.send('AO' + angle);
-            ws.send('BO' + angle);
-        }
+    $('#motorBSpeedDown').click(function() {
+        ws.send("DO-5")
     });
+
+
+
+    $('#motorServoALeft').click(function() {
+        ws.send("AO5")
+    });
+
+    $('#motorServoARight').click(function() {
+        ws.send("AO-5")
+    });
+
+    $('#motorServoBLeft').click(function() {
+        ws.send("BO5")
+    });
+
+    $('#motorServoBRight').click(function() {
+        ws.send("BO-5")
+    });
+
 
     $('#pingButton').click(function() {
         ws.send('H');
@@ -146,3 +184,72 @@ $(document).ready(function() {
 
 
 });
+
+let keyInterval = {};
+let keysPressed = { left: false, up: false, right: false, down: false };
+
+document.addEventListener("keydown", function(event) {
+    let key;
+    switch (event.key) {
+        case "ArrowLeft":
+            key = "left";
+            break;
+        case "ArrowUp":
+            key = "up";
+            break;
+        case "ArrowRight":
+            key = "right";
+            break;
+        case "ArrowDown":
+            key = "down";
+            break;
+    }
+
+    if (key) {
+        document.getElementById(key).classList.add('pressed');
+        sendKeyCommand(key);
+    }
+});
+
+document.addEventListener("keyup", function(event) {
+    let key;
+    switch (event.key) {
+        case "ArrowLeft":
+            key = "left";
+            break;
+        case "ArrowUp":
+            key = "up";
+            break;
+        case "ArrowRight":
+            key = "right";
+            break;
+        case "ArrowDown":
+            key = "down";
+            break;
+    }
+    if (key) {
+        document.getElementById(key).classList.remove('pressed');
+    }
+});
+
+function sendKeyCommand(key) {
+    switch (key) {
+        case "left":
+            console.log("sending XO5 for left");
+            ws.send("XO5");
+            break;
+        case "right":
+            console.log("sending XO-5 for right");
+            ws.send("XO-5");
+            break;
+        case "up":
+            console.log("sending YO5 for up");
+            ws.send("YO5");
+            break;
+        case "down":
+            console.log("sending YO-5 for down");
+            ws.send("YO-5");
+            break;
+    }
+}
+

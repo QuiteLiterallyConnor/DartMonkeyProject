@@ -5,9 +5,11 @@ void ServoController::initialize(std::string n, StaticJsonDocument<500> config) 
   servoPin = config["pin"];
   speed = config["speed"];
   angle_limit = config["angle_limit"];
-  servo.attach(servoPin, config["starting_angle"]);
-
+  startingAngle = config["starting_angle"];
+  servo.attach(servoPin);
   servo.setEasingType(EASE_CUBIC_IN_OUT);
+  servo.easeTo(startingAngle, speed);
+  delay(500);
 
   Serial.print("%%%_INFO:");
   Serial.print(name.c_str());
@@ -26,20 +28,18 @@ void ServoController::handleGcodeCommand(std::string cmd) {
 }
 
 void ServoController::changeAngle(int delta) {
-  int new_angle = currentAngle += delta;
-  if (new_angle <= angle_limit && new_angle >= 0) {
-      setAngle(new_angle);
-  }
+  setAngle(currentAngle + delta);
 }
 
 void ServoController::setAngle(int angle) {
-  if (angle <= angle_limit && angle >= 0) {
+  if (angle >= 0 && angle <= angle_limit) {
+    currentAngle = angle;
+    print();
     servo.easeTo(angle, speed);
     // servo.write(angle);
-    currentAngle = angle;
-
+  } else {
+    print();
   }
-  print();
 }
 
 int ServoController::getCurrentAngle() {

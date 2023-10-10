@@ -3,7 +3,6 @@
 
 #include <Arduino.h>
 #include <string>
-#include "Servo.h"
 #include <ArduinoJson.h>
 
 #define SUPPRESS_HPP_WARNING
@@ -31,6 +30,7 @@ private:
   int speed = 100;
   int currentAngle = 0;
   int angle_limit = 90;
+  int startingAngle = 0;
   void print();
 };
 

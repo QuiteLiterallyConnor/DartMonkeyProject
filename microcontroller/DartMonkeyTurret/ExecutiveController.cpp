@@ -34,13 +34,13 @@ void adam() {
 
 std::map<std::string, SerialController::Command> SerialController::initializeCommandMap() {
     return {
-        {"HR",  {"Hard Restart",  [&](std::string cmd) { executiveController.Reset();                            return true;  }}},
+        {"R",  {"Hard Restart",  [&](std::string cmd) { executiveController.Reset();                            return true;  }}},
         {"X",  {"X axis",         [&](std::string cmd) { xRotationController.handleGcodeCommand(cmd);            return true;  }}},
         {"Y",  {"Y axis",         [&](std::string cmd) { yRotationController.handleGcodeCommand(cmd);            return true;  }}},
-        {"AS",  {"A servo",       [&](std::string cmd) { motorAServoController.handleGcodeCommand(cmd);          return false; }}},
-        {"BS",  {"B servo",       [&](std::string cmd) { motorBServoController.handleGcodeCommand(cmd);          return false; }}},
-        {"AM",  {"A motor",       [&](std::string cmd) { motorBController.handleGcodeCommand(cmd);               return true;  }}},                                                    
-        {"BM",  {"B motor",       [&](std::string cmd) { motorBController.handleGcodeCommand(cmd);               return true;  }}},
+        {"A",  {"A servo",       [&](std::string cmd) { motorAServoController.handleGcodeCommand(cmd);          return false; }}},
+        {"B",  {"B servo",       [&](std::string cmd) { motorBServoController.handleGcodeCommand(cmd);          return false; }}},
+        {"C",  {"A motor",       [&](std::string cmd) { motorAController.handleGcodeCommand(cmd);               return true;  }}},                                                    
+        {"D",  {"B motor",       [&](std::string cmd) { motorBController.handleGcodeCommand(cmd);               return true;  }}},
         {"H",  {"Heartbeat",      [&](std::string cmd) { Serial.println("%%%_HEARTBEAT"); print_status();        return true;  }}}
     };
 }
@@ -70,7 +70,7 @@ void init_controllers() {
 void SerialController::initialize(std::map<std::string, Command> cmdMap) {
   commandMap = cmdMap;
   threads.addThread(blink_thread, 0);
-  Serial.println("%%%_INFO:EXECUTIVE_CONTROLLER: Finished init");
+  Serial.println("%%%_INFO:EXECUTIVE_CONTROLLER:Finished init");
 }
 
 void SerialController::handleSerial() {
@@ -106,34 +106,35 @@ void SerialController::processSerialInput() {
 
 bool SerialController::isValidCommand(const std::string& cmd) {
     if (cmd.empty()) return false;
-    if (cmd == "H" || cmd == "R") return true;
     char commandType = cmd[0];
+    if (commandType == 'H' || commandType == 'R' || commandType == 'W') return true;
     if (!isalpha(commandType) || commandType < 'A' || commandType > 'Z') {
+        Serial.print("%%%_ERR:INVALID_COMMAND:Invalid first character");
         return false;
     }
     if (cmd.length() == 1) return false;
     char commandAction = cmd[1];
     if (!isalpha(commandAction) || commandAction < 'A' || commandAction > 'Z') {
+        Serial.print("%%%_ERR:INVALID_COMMAND:Invalid second character");
+        return false;
+    }
+
+    auto cmdMap = initializeCommandMap();
+    if (cmdMap.find(std::string(1, commandType)) == cmdMap.end()) {
+        Serial.print("%%%_ERR:INVALID_COMMAND:Command not found");
         return false;
     }
 
     std::string valueString = cmd.substr(2);
-    auto cmdMap = initializeCommandMap();
-    if (cmdMap.find(std::string(1, commandType)) == cmdMap.end()) {
-        return false;
-    }
-
     for (size_t i = 0; i < valueString.length(); ++i) {
         char c = valueString[i];
         if (!isdigit(c) && (c != '-' || i != 0)) {
+          Serial.print("%%%_ERR:INVALID_COMMAND:Invalid character in value");
           return false;
         }
     }
 
-    int value = std::stoi(valueString);
-    if (value == 0 && valueString != "0") {
-      return false;
-    }
+    // int value = std::stoi(valueString);
 
     return true;
 }
@@ -169,8 +170,8 @@ int ExecutiveController::loadConfig() {
     yRotationController.initialize("Y_SERVO", doc["Y_SERVO"]);
     motorAServoController.initialize("MOTOR_A_SERVO", doc["MOTOR_A_SERVO"]);
     motorBServoController.initialize("MOTOR_B_SERVO", doc["MOTOR_B_SERVO"]);
-    motorAController.initialize("MOTOR_B", doc["MOTOR_B"]);
-    motorBController.initialize("MOTOR_A", doc["MOTOR_A"]);
+    motorAController.initialize("MOTOR_A", doc["MOTOR_A"]);
+    motorBController.initialize("MOTOR_B", doc["MOTOR_B"]);
     serialController.initialize(serialController.initializeCommandMap());
 
     return 0;
@@ -179,10 +180,10 @@ int ExecutiveController::loadConfig() {
 const char* ExecutiveController::getConfigJsonString() {
     return R"json(
     {
-      "X_SERVO": { "pin": 1, "speed": 30, "starting_angle": 45, "angle_limit": 120 },
+      "X_SERVO": { "pin": 1, "speed": 30, "starting_angle": 60, "angle_limit": 120 },
       "Y_SERVO": { "pin": 2, "speed": 50, "starting_angle": 45, "angle_limit": 90 },
-      "MOTOR_A_SERVO": { "pin": 3, "speed": 50, "starting_angle": 45, "angle_limit": 20 },
-      "MOTOR_B_SERVO": { "pin": 4, "speed": 50, "starting_angle": 45, "angle_limit": 20 },
+      "MOTOR_A_SERVO": { "pin": 3, "speed": 50, "starting_angle": 1, "angle_limit": 20 },
+      "MOTOR_B_SERVO": { "pin": 4, "speed": 50, "starting_angle": 19, "angle_limit": 20 },
       "MOTOR_A": { "pin": 5 },
       "MOTOR_B": { "pin": 6 }
     }

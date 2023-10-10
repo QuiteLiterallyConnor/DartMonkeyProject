@@ -1,4 +1,4 @@
-from flask import Flask, Response
+from flask import Flask, Response, render_template
 import cv2
 import sys
 
@@ -17,6 +17,11 @@ def generate_frames():
             frame = buffer.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            
+@app.route('/')
+def index():
+    return render_template('camera_index.html')
+
 
 @app.route('/stream')
 def video():

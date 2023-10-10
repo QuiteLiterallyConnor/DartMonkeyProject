@@ -22,6 +22,70 @@ import (
 	"github.com/tarm/serial"
 )
 
+type GStreamerServer struct {
+	compressionLevel int
+	maxFiles         int
+	bufferDuration   int
+	segmentDuration  int
+	gstPath          string
+}
+
+func (g *GStreamerServer) init() {
+	g.compressionLevel = 50
+	g.segmentDuration = 1
+	g.bufferDuration = 60
+	g.maxFiles = int(g.bufferDuration / g.segmentDuration)
+	g.gstPath = "E:\\gstreamer\\1.0\\msvc_x86_64\\bin\\gst-launch-1.0.exe"
+}
+
+func (g *GStreamerServer) StartWebcamStream() {
+	go g.CallStreamerExecutable()
+	go g.CleanUpHLSFiles()
+}
+
+func (g *GStreamerServer) CallStreamerExecutable() {
+	quantizerValue := 20 + (g.compressionLevel * 30 / 100)
+
+	cmd := exec.Command(
+		g.gstPath,
+		"mfvideosrc",
+		"!",
+		"videoconvert",
+		"!",
+		"tee", "name=t",
+		"t.",
+		"!",
+		"queue",
+		"!",
+		"videoconvert",
+		"!",
+		"x264enc", "bitrate=500", "quantizer="+strconv.Itoa(quantizerValue), "speed-preset=ultrafast", "tune=zerolatency",
+		"!",
+		"mpegtsmux",
+		"!",
+		"hlssink", "location=./hls/segment%05d.ts", "playlist-location=./hls/playlist.m3u8", "max-files="+strconv.Itoa(g.maxFiles), "target-duration="+strconv.Itoa(g.segmentDuration),
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (g *GStreamerServer) CleanUpHLSFiles() {
+	for {
+		time.Sleep(time.Second * time.Duration(g.bufferDuration))
+		files, _ := os.ReadDir("./hls")
+		if len(files) > g.maxFiles {
+			for i := 0; i < len(files)-g.maxFiles; i++ {
+				os.Remove("./hls/" + files[i].Name())
+			}
+		}
+	}
+}
+
 type Config struct {
 	Name       string `json:"name"`
 	ComPort    string `json:"com_port"`
@@ -297,50 +361,6 @@ func (s *Serial) InitiateConnectionChecking() {
 	go s.checkConnection()
 }
 
-type CameraServer struct {
-	Port string
-	Cmd  *exec.Cmd
-}
-
-func NewCameraServer(comPort string) *CameraServer {
-	c := &CameraServer{
-		Port: comPort,
-	}
-	return c
-}
-
-func (c *CameraServer) Start() error {
-	if c.Cmd != nil && c.Cmd.Process != nil {
-		return fmt.Errorf("server already running")
-	}
-	c.Cmd = exec.Command("python", "camera_server.py", c.Port)
-	c.Cmd.Stdout = os.Stdout
-	c.Cmd.Stderr = os.Stderr
-	return c.Cmd.Start()
-}
-
-func (c *CameraServer) Stop() error {
-	if c.Cmd != nil && c.Cmd.Process != nil {
-		err := c.Cmd.Process.Kill()
-		if err != nil {
-			return err
-		}
-		c.Cmd.Wait()
-		c.Cmd = nil
-		return nil
-	}
-	return fmt.Errorf("server not running")
-}
-
-func (c *CameraServer) Restart() error {
-	err := c.Stop()
-	if err != nil {
-		return fmt.Errorf("error stopping server: %v", err)
-	}
-	time.Sleep(1 * time.Second)
-	return c.Start()
-}
-
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -349,7 +369,7 @@ var upgrader = websocket.Upgrader{
 
 type Server struct {
 	Serial      *Serial
-	Camera      *CameraServer
+	Camera      *GStreamerServer
 	Config      Config
 	Connections map[*websocket.Conn]struct{}
 	Mu          sync.Mutex
@@ -357,10 +377,13 @@ type Server struct {
 
 func NewServer(config Config) *Server {
 	serial := NewSerial(config.ComPort)
-	camera := NewCameraServer(config.CameraPort)
+	camera := GStreamerServer{}
+	camera.init()
+	camera.StartWebcamStream()
+
 	return &Server{
 		Serial:      serial,
-		Camera:      camera,
+		Camera:      &camera,
 		Config:      config,
 		Connections: make(map[*websocket.Conn]struct{}),
 	}
@@ -408,6 +431,9 @@ func (s *Server) listenToFrontend(conn *websocket.Conn) {
 			}
 			if messageType == websocket.TextMessage {
 				message := strings.TrimSpace(string(p))
+
+				fmt.Printf("recieved from frontend: %v\n", message)
+
 				s.Serial.Write(message)
 			}
 		}
@@ -460,18 +486,20 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 		}
 
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "%%%") {
 
-			if s.updateStoredSystemState(line) || line == "%%%_HEARTBEAT" {
-				s.Mu.Lock()
-				for conn := range s.Connections {
-					if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
-						fmt.Println("WebSocket write error:", err)
-						delete(s.Connections, conn)
-					}
+		if !strings.HasPrefix(line, "%%%") {
+			fmt.Printf("Received from microcontroller: %v\n", line)
+		}
+
+		if s.updateStoredSystemState(line) || line == "%%%_HEARTBEAT" {
+			s.Mu.Lock()
+			for conn := range s.Connections {
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
+					fmt.Println("WebSocket write error:", err)
+					delete(s.Connections, conn)
 				}
-				s.Mu.Unlock()
 			}
+			s.Mu.Unlock()
 		}
 
 	}
@@ -482,6 +510,8 @@ func (s *Server) ServeHTML() {
 	r := gin.Default()
 	r.ForwardedByClientIP = true
 	r.Static("/public", "./public")
+	r.Static("/hls", "./hls")
+
 	a := NewAdmin()
 
 	s.Serial.InitiateConnectionChecking()
@@ -508,6 +538,7 @@ func (s *Server) ServeHTML() {
 }
 
 func main() {
+
 	configs, err := readConfig()
 	if err != nil {
 		fmt.Println("Error reading config:", err)
@@ -517,7 +548,6 @@ func main() {
 	for _, config := range configs {
 		server := NewServer(config)
 		go server.ServeHTML() // Start each server in its goroutine
-		server.Camera.Start()
 	}
 
 	select {} // prevent main from exiting

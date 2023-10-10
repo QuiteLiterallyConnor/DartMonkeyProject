@@ -4,9 +4,10 @@
 #include <Arduino.h>
 #include <string>
 #include <iostream>
-#include "Servo.h"
 #include <ArduinoJson.h>
 
+#define SUPPRESS_HPP_WARNING
+#include "EasingLib.h"
 
 class ESCController {
 public:
@@ -21,7 +22,8 @@ public:
 
 private:
     std::string name;
-    Servo controller;
+    ServoEasing controller;
+    // Servo controller;
     int controllerPin;
     int currentSpeed;
     int prevSpeed;

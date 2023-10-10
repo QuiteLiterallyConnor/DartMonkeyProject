@@ -18,8 +18,8 @@ void ESCController::sync() {
 }
 
 void ESCController::handleGcodeCommand(std::string cmd) {
-  char actionType = cmd[2];
-  int value = std::stoi(cmd.substr(3));
+  char actionType = cmd[1];
+  int value = std::stoi(cmd.substr(2));
 
   if (actionType == 'S') {
     setSpeed(value);
@@ -46,10 +46,13 @@ void ESCController::togglePower() {
 
 void ESCController::setSpeed(int speed) {
     if (speed >= 0 && speed <= 100) {
-      (speed > 0) ? controller.writeMicroseconds(speedToPulseWidth(speed)) : controller.writeMicroseconds(IDLE_PWM);
       currentSpeed = speed;
+      print();
+      (speed > 0) ? controller.easeTo(speedToPulseWidth(speed), 10) : controller.easeTo(IDLE_PWM, 10);
+      // (speed > 0) ? controller.writeMicroseconds(speedToPulseWidth(speed)) : controller.writeMicroseconds(IDLE_PWM);
+    } else {
+      print();
     }
-    print();
 }
 
 void ESCController::offsetSpeed(int delta) {

@@ -47,6 +47,7 @@ private:
     bool isValidCommand(const std::string& cmd);
     void handleCommand(const std::string& cmd);
     void handleMetaCommand(const std::string& cmd);
+    void wait(std::string cmd);
 };
 
 class ExecutiveController {
