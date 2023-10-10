@@ -4,47 +4,53 @@ import (
 	"bytes"
 	"image/jpeg"
 	"net/http"
+	"os/exec"
 	"time"
 
-	"github.com/faiface/pixel/pixelgl"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	go func() {
-		pixelgl.Run(func() {
-			r := gin.Default()
-			r.GET("/mjpeg", MJPEGStream)
-			r.GET("/", func(c *gin.Context) {
-				c.Header("Content-Type", "text/html")
-				c.String(http.StatusOK, `<img src="/mjpeg" />`)
-			})
-			r.Run(":8080")
-		})
-	}()
-	select {} // This will prevent the main function from exiting immediately
+	r := gin.Default()
+
+	r.GET("/mjpeg", MJPEGStream)
+	r.GET("/", func(c *gin.Context) {
+		c.Header("Content-Type", "text/html")
+		c.String(http.StatusOK, `<img src="/mjpeg" />`)
+	})
+
+	r.Run(":8080")
 }
 
 func MJPEGStream(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary=myboundary")
 
-	cfg := pixelgl.DefaultCameraConfig
-	camera, err := pixelgl.NewCamera(cfg)
+	cmd := exec.Command("ffmpeg", "-f", "v4l2", "-i", "/dev/video0", "-f", "image2pipe", "-vcodec", "mjpeg", "-")
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Error initializing camera")
+		c.String(http.StatusInternalServerError, "Error starting ffmpeg")
 		return
 	}
-	defer camera.Close()
 
+	if err := cmd.Start(); err != nil {
+		c.String(http.StatusInternalServerError, "Error starting ffmpeg command")
+		return
+	}
+	defer cmd.Process.Kill()
+
+	buff := make([]byte, 512)
 	for {
-		frame := camera.Update()
-		if frame == nil {
-			c.String(http.StatusInternalServerError, "Error reading frame from camera")
-			return
+		n, err := stdout.Read(buff)
+		if err != nil {
+			break
+		}
+		img, err := jpeg.Decode(bytes.NewReader(buff[:n]))
+		if err != nil {
+			continue
 		}
 
 		buf := new(bytes.Buffer)
-		if err := jpeg.Encode(buf, frame, nil); err != nil {
+		if err := jpeg.Encode(buf, img, nil); err != nil {
 			c.String(http.StatusInternalServerError, "Error encoding image")
 			return
 		}
