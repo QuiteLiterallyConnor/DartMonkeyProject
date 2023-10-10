@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image/jpeg"
 	"net/http"
 	"os/exec"
@@ -9,18 +10,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
-func main() {
-	r := gin.Default()
-
-	r.GET("/mjpeg", MJPEGStream)
-	r.GET("/", func(c *gin.Context) {
-		c.Header("Content-Type", "text/html")
-		c.String(http.StatusOK, `<img src="/mjpeg" />`)
-	})
-
-	r.Run(":8080")
-}
 
 func MJPEGStream(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary=myboundary")
@@ -37,6 +26,8 @@ func MJPEGStream(c *gin.Context) {
 		return
 	}
 	defer cmd.Process.Kill()
+
+	fmt.Printf("Successfully started FFMPEG\n")
 
 	buff := make([]byte, 512)
 	for {
@@ -63,4 +54,16 @@ func MJPEGStream(c *gin.Context) {
 
 		time.Sleep(33 * time.Millisecond) // ~30 FPS
 	}
+}
+
+func main() {
+	r := gin.Default()
+
+	r.GET("/mjpeg", MJPEGStream)
+	r.GET("/", func(c *gin.Context) {
+		c.Header("Content-Type", "text/html")
+		c.String(http.StatusOK, `<img src="/mjpeg" />`)
+	})
+
+	r.Run(":8080")
 }
