@@ -41,6 +41,9 @@ func MJPEGStream(c *gin.Context) {
 		}
 
 		buf := new(bytes.Buffer)
+
+		fmt.Printf("img: %v\n", img)
+
 		if err := jpeg.Encode(buf, img, nil); err != nil {
 			c.String(http.StatusInternalServerError, "Error encoding image")
 			return
