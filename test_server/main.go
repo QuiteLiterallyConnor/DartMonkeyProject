@@ -3,76 +3,59 @@ package main
 import (
 	"bytes"
 	"image/jpeg"
-	"log"
-	"sync"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gocv.io/x/gocv"
 )
 
-var (
-	mu       sync.Mutex
-	imgBytes []byte
-)
-
 func main() {
-	webcam, err := gocv.VideoCaptureDevice(0) // Open default webcam. Adjust the index if you have multiple cameras.
-	if err != nil {
-		log.Fatalf("Failed to open webcam: %v", err)
-	}
-	defer webcam.Close()
-
-	go func() {
-		frame := gocv.NewMat()
-		defer frame.Close()
-
-		for {
-			if ok := webcam.Read(&frame); !ok {
-				log.Println("Cannot read device")
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
-			if frame.Empty() {
-				continue
-			}
-
-			buf := new(bytes.Buffer)
-			if err := jpeg.Encode(buf, frame.ToImage(), nil); err != nil {
-				log.Printf("Failed to encode image: %v", err)
-			}
-
-			mu.Lock()
-			imgBytes = buf.Bytes()
-			mu.Unlock()
-
-			time.Sleep(33 * time.Millisecond) // 30 fps
-		}
-	}()
-
 	r := gin.Default()
-	r.GET("/mjpeg", func(c *gin.Context) {
-		c.Header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
 
-		for {
-			mu.Lock()
-			currentImgBytes := make([]byte, len(imgBytes))
-			copy(currentImgBytes, imgBytes)
-			mu.Unlock()
-
-			c.Writer.Write([]byte("--frame\r\n"))
-			c.Writer.Write([]byte("Content-Type: image/jpeg\r\n\r\n"))
-			c.Writer.Write(currentImgBytes)
-			c.Writer.Write([]byte("\r\n"))
-
-			time.Sleep(33 * time.Millisecond) // 30 fps
-		}
-	})
-
+	r.GET("/mjpeg", MJPEGStream)
 	r.GET("/", func(c *gin.Context) {
-		c.HTML(200, "index.html", nil)
+		c.Header("Content-Type", "text/html")
+		c.String(http.StatusOK, `<img src="/mjpeg" />`)
 	})
 
-	r.LoadHTMLGlob("*.html")
 	r.Run(":8080")
+}
+
+func MJPEGStream(c *gin.Context) {
+	c.Writer.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary=myboundary")
+
+	video, err := gocv.OpenVideoCapture(0) // 0 is the default camera index
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Error opening video capture")
+		return
+	}
+	defer video.Close()
+
+	img := gocv.NewMat()
+	defer img.Close()
+
+	for {
+		if ok := video.Read(&img); !ok {
+			c.String(http.StatusInternalServerError, "Cannot read from video capture")
+			return
+		}
+		if img.Empty() {
+			continue
+		}
+
+		buf := new(bytes.Buffer)
+		if err := jpeg.Encode(buf, img.ToImage(), nil); err != nil {
+			c.String(http.StatusInternalServerError, "Error encoding image")
+			return
+		}
+
+		c.Writer.Write([]byte("--myboundary\r\n"))
+		c.Writer.Write([]byte("Content-Type: image/jpeg\r\n"))
+		c.Writer.Write([]byte("Content-Length: " + string(len(buf.Bytes())) + "\r\n\r\n"))
+		c.Writer.Write(buf.Bytes())
+		c.Writer.Write([]byte("\r\n"))
+
+		time.Sleep(33 * time.Millisecond) // ~30 FPS
+	}
 }
