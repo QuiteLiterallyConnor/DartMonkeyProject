@@ -1,6 +1,6 @@
 const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/controller/ws";
 const ws = new WebSocket(wsURL);
-const livestreamLocation = window.location.protocol + '//' + currentLocation.hostname + ':6001/stream';
+const livestreamLocation = window.location.protocol + '//' + window.location.hostname + ':6001/stream';
 
 console.log(livestreamLocation);
 
