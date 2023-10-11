@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"image/jpeg"
 	"log"
 	"net/http"
 	"os/exec"
@@ -54,8 +53,11 @@ func MJPEGStream(c *gin.Context) {
 
 	buff := make([]byte, 512)
 	var frameBuffer bytes.Buffer
+	targetFrameTime := 33 * time.Millisecond // ~30 FPS
 
 	for {
+		startTime := time.Now()
+
 		n, err := stdout.Read(buff)
 		if err != nil {
 			log.Printf("Error reading from stdout: %v", err)
@@ -64,30 +66,20 @@ func MJPEGStream(c *gin.Context) {
 
 		frameBuffer.Write(buff[:n])
 
-		if bytes.HasSuffix(frameBuffer.Bytes(), []byte(EOI)) {
-			img, err := jpeg.Decode(&frameBuffer)
-			if err != nil {
-				log.Printf("Error decoding jpeg: %v", err)
-				frameBuffer.Reset() // Reset buffer if we encountered an error
-				continue
-			}
-
-			buf := new(bytes.Buffer)
-			if err := jpeg.Encode(buf, img, nil); err != nil {
-				log.Printf("Error encoding image: %v", err)
-				frameBuffer.Reset() // Reset buffer if we encountered an error
-				continue
-			}
-
+		if bytes.HasSuffix(frameBuffer.Bytes()[len(frameBuffer.Bytes())-2:], []byte(EOI)) {
 			c.Writer.Write([]byte("--myboundary\r\n"))
 			c.Writer.Write([]byte("Content-Type: image/jpeg\r\n"))
-			c.Writer.Write([]byte("Content-Length: " + string(len(buf.Bytes())) + "\r\n\r\n"))
-			c.Writer.Write(buf.Bytes())
+			c.Writer.Write([]byte("Content-Length: " + string(frameBuffer.Len()) + "\r\n\r\n"))
+			c.Writer.Write(frameBuffer.Bytes())
 			c.Writer.Write([]byte("\r\n"))
 
 			frameBuffer.Reset() // Clear the frameBuffer for the next frame
 
-			time.Sleep(33 * time.Millisecond) // ~30 FPS
+			// Adjust sleep to maintain target FPS
+			elapsedTime := time.Since(startTime)
+			if targetFrameTime > elapsedTime {
+				time.Sleep(targetFrameTime - elapsedTime)
+			}
 		}
 	}
 
