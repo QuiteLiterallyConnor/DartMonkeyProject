@@ -1,5 +1,9 @@
 const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/controller/ws";
 const ws = new WebSocket(wsURL);
+const livestreamLocation = window.location.protocol + window.location.href.replace(/:\d+/, ':6001/stream');
+
+console.log(livestreamLocation);
+
 
 $(document).ready(function() {
     let intervalID; // To store the interval ID
@@ -20,6 +24,9 @@ $(document).ready(function() {
         // Clear the interval when the WebSocket disconnects
         clearInterval(intervalID);
     };
+
+    console.log(livestreamLocation);
+    $("#livestream").attr("src", livestreamLocation);
 
     let lastHeartbeatTime = Date.now();
     let heartbeatInterval;
