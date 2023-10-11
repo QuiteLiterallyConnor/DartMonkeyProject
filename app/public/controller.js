@@ -61,25 +61,25 @@ $(document).ready(function() {
         
     };
 
-    const video = document.getElementById('video');
-    const liveButton = document.getElementById('liveButton');
+    // const video = document.getElementById('video');
+    // const liveButton = document.getElementById('liveButton');
     
-    const hls = new Hls({
-        liveBackBufferLength: 3, // Keep only 3 seconds of content for back buffer
-        maxBufferLength: 5,     // Maximum buffer length of 5 seconds
-        maxBufferSize: 500000,  // Maximum buffer size in bytes
-        liveSyncDurationCount: 1 // Try to stay close to live
-    });
+    // const hls = new Hls({
+    //     liveBackBufferLength: 3, // Keep only 3 seconds of content for back buffer
+    //     maxBufferLength: 5,     // Maximum buffer length of 5 seconds
+    //     maxBufferSize: 500000,  // Maximum buffer size in bytes
+    //     liveSyncDurationCount: 1 // Try to stay close to live
+    // });
 
     
-    hls.loadSource('/hls/playlist.m3u8');
-    hls.attachMedia(video);
+    // hls.loadSource('/hls/playlist.m3u8');
+    // hls.attachMedia(video);
     
-    liveButton.addEventListener('click', function() {
-        if (video.duration) {
-            video.currentTime = video.duration; // Move to the most recent moment
-        }
-    });
+    // liveButton.addEventListener('click', function() {
+    //     if (video.duration) {
+    //         video.currentTime = video.duration; // Move to the most recent moment
+    //     }
+    // });
 
 
     function processSystemMessage(line) {
