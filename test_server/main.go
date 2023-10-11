@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,37 +26,39 @@ const (
 	EOI = "\xff\xd9"
 )
 
-func MJPEGStream(c *gin.Context) {
-	log.Println("Entering MJPEGStream function")
+var frameChan = make(chan []byte, 1)
 
+func MJPEGStream(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary=myboundary")
 
+	go readFramesFromFFmpeg()
+
+	for frame := range frameChan {
+		c.Writer.Write([]byte("--myboundary\r\n"))
+		c.Writer.Write([]byte("Content-Type: image/jpeg\r\n"))
+		c.Writer.Write([]byte("Content-Length: " + string(len(frame)) + "\r\n\r\n"))
+		c.Writer.Write(frame)
+		c.Writer.Write([]byte("\r\n"))
+	}
+}
+
+func readFramesFromFFmpeg() {
 	cmd := exec.Command("ffmpeg", "-f", "v4l2", "-i", "/dev/video1", "-f", "image2pipe", "-vcodec", "mjpeg", "-")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Printf("Error getting stdout pipe for ffmpeg: %v", err)
-		c.String(http.StatusInternalServerError, "Error starting ffmpeg")
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
 		log.Printf("Error starting ffmpeg command: %v", err)
-		c.String(http.StatusInternalServerError, "Error starting ffmpeg command")
 		return
 	}
-	defer func() {
-		if err := cmd.Process.Kill(); err != nil {
-			log.Printf("Error killing ffmpeg process: %v", err)
-		}
-	}()
 
-	buff := make([]byte, 512)
+	buff := make([]byte, 8*1024)
 	var frameBuffer bytes.Buffer
-	targetFrameTime := 33 * time.Millisecond // ~30 FPS
 
 	for {
-		startTime := time.Now()
-
 		n, err := stdout.Read(buff)
 		if err != nil {
 			log.Printf("Error reading from stdout: %v", err)
@@ -67,21 +68,14 @@ func MJPEGStream(c *gin.Context) {
 		frameBuffer.Write(buff[:n])
 
 		if bytes.HasSuffix(frameBuffer.Bytes()[len(frameBuffer.Bytes())-2:], []byte(EOI)) {
-			c.Writer.Write([]byte("--myboundary\r\n"))
-			c.Writer.Write([]byte("Content-Type: image/jpeg\r\n"))
-			c.Writer.Write([]byte("Content-Length: " + string(frameBuffer.Len()) + "\r\n\r\n"))
-			c.Writer.Write(frameBuffer.Bytes())
-			c.Writer.Write([]byte("\r\n"))
+			select {
+			case frameChan <- frameBuffer.Bytes():
+				// frame sent to channel
+			default:
+				// previous frame still being processed, dropping current frame
+			}
 
 			frameBuffer.Reset() // Clear the frameBuffer for the next frame
-
-			// Adjust sleep to maintain target FPS
-			elapsedTime := time.Since(startTime)
-			if targetFrameTime > elapsedTime {
-				time.Sleep(targetFrameTime - elapsedTime)
-			}
 		}
 	}
-
-	log.Println("Exiting MJPEGStream function")
 }
