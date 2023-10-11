@@ -361,6 +361,50 @@ func (s *Serial) InitiateConnectionChecking() {
 	go s.checkConnection()
 }
 
+type CameraServer struct {
+	Port string
+	Cmd  *exec.Cmd
+}
+
+func NewCameraServer(comPort string) *CameraServer {
+	c := &CameraServer{
+		Port: comPort,
+	}
+	return c
+}
+
+func (c *CameraServer) Start() error {
+	if c.Cmd != nil && c.Cmd.Process != nil {
+		return fmt.Errorf("server already running")
+	}
+	c.Cmd = exec.Command("python", "camera_server.py", c.Port)
+	c.Cmd.Stdout = os.Stdout
+	c.Cmd.Stderr = os.Stderr
+	return c.Cmd.Start()
+}
+
+func (c *CameraServer) Stop() error {
+	if c.Cmd != nil && c.Cmd.Process != nil {
+		err := c.Cmd.Process.Kill()
+		if err != nil {
+			return err
+		}
+		c.Cmd.Wait()
+		c.Cmd = nil
+		return nil
+	}
+	return fmt.Errorf("server not running")
+}
+
+func (c *CameraServer) Restart() error {
+	err := c.Stop()
+	if err != nil {
+		return fmt.Errorf("error stopping server: %v", err)
+	}
+	time.Sleep(1 * time.Second)
+	return c.Start()
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -369,7 +413,7 @@ var upgrader = websocket.Upgrader{
 
 type Server struct {
 	Serial      *Serial
-	Camera      *GStreamerServer
+	Camera      *CameraServer
 	Config      Config
 	Connections map[*websocket.Conn]struct{}
 	Mu          sync.Mutex
@@ -377,13 +421,10 @@ type Server struct {
 
 func NewServer(config Config) *Server {
 	serial := NewSerial(config.ComPort)
-	camera := GStreamerServer{}
-	camera.init()
-	camera.StartWebcamStream()
-
+	camera := NewCameraServer(config.CameraPort)
 	return &Server{
 		Serial:      serial,
-		Camera:      &camera,
+		Camera:      camera,
 		Config:      config,
 		Connections: make(map[*websocket.Conn]struct{}),
 	}
@@ -431,9 +472,6 @@ func (s *Server) listenToFrontend(conn *websocket.Conn) {
 			}
 			if messageType == websocket.TextMessage {
 				message := strings.TrimSpace(string(p))
-
-				fmt.Printf("recieved from frontend: %v\n", message)
-
 				s.Serial.Write(message)
 			}
 		}
@@ -486,20 +524,18 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 		}
 
 		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "%%%") {
 
-		if !strings.HasPrefix(line, "%%%") {
-			fmt.Printf("Received from microcontroller: %v\n", line)
-		}
-
-		if s.updateStoredSystemState(line) || line == "%%%_HEARTBEAT" {
-			s.Mu.Lock()
-			for conn := range s.Connections {
-				if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
-					fmt.Println("WebSocket write error:", err)
-					delete(s.Connections, conn)
+			if s.updateStoredSystemState(line) || line == "%%%_HEARTBEAT" {
+				s.Mu.Lock()
+				for conn := range s.Connections {
+					if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
+						fmt.Println("WebSocket write error:", err)
+						delete(s.Connections, conn)
+					}
 				}
+				s.Mu.Unlock()
 			}
-			s.Mu.Unlock()
 		}
 
 	}
@@ -510,8 +546,6 @@ func (s *Server) ServeHTML() {
 	r := gin.Default()
 	r.ForwardedByClientIP = true
 	r.Static("/public", "./public")
-	r.Static("/hls", "./hls")
-
 	a := NewAdmin()
 
 	s.Serial.InitiateConnectionChecking()
@@ -538,7 +572,6 @@ func (s *Server) ServeHTML() {
 }
 
 func main() {
-
 	configs, err := readConfig()
 	if err != nil {
 		fmt.Println("Error reading config:", err)
@@ -548,6 +581,7 @@ func main() {
 	for _, config := range configs {
 		server := NewServer(config)
 		go server.ServeHTML() // Start each server in its goroutine
+		server.Camera.Start()
 	}
 
 	select {} // prevent main from exiting
