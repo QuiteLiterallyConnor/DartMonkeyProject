@@ -23,6 +23,11 @@ func main() {
 	r.Run(":8080")
 }
 
+const (
+	SOI = "\xff\xd8"
+	EOI = "\xff\xd9"
+)
+
 func MJPEGStream(c *gin.Context) {
 	log.Println("Entering MJPEGStream function")
 
@@ -48,6 +53,8 @@ func MJPEGStream(c *gin.Context) {
 	}()
 
 	buff := make([]byte, 512)
+	var frameBuffer bytes.Buffer
+
 	for {
 		n, err := stdout.Read(buff)
 		if err != nil {
@@ -55,26 +62,33 @@ func MJPEGStream(c *gin.Context) {
 			break
 		}
 
-		img, err := jpeg.Decode(bytes.NewReader(buff[:n]))
-		if err != nil {
-			log.Printf("Error decoding jpeg: %v", err)
-			continue
+		frameBuffer.Write(buff[:n])
+
+		if bytes.HasSuffix(frameBuffer.Bytes(), []byte(EOI)) {
+			img, err := jpeg.Decode(&frameBuffer)
+			if err != nil {
+				log.Printf("Error decoding jpeg: %v", err)
+				frameBuffer.Reset() // Reset buffer if we encountered an error
+				continue
+			}
+
+			buf := new(bytes.Buffer)
+			if err := jpeg.Encode(buf, img, nil); err != nil {
+				log.Printf("Error encoding image: %v", err)
+				frameBuffer.Reset() // Reset buffer if we encountered an error
+				continue
+			}
+
+			c.Writer.Write([]byte("--myboundary\r\n"))
+			c.Writer.Write([]byte("Content-Type: image/jpeg\r\n"))
+			c.Writer.Write([]byte("Content-Length: " + string(len(buf.Bytes())) + "\r\n\r\n"))
+			c.Writer.Write(buf.Bytes())
+			c.Writer.Write([]byte("\r\n"))
+
+			frameBuffer.Reset() // Clear the frameBuffer for the next frame
+
+			time.Sleep(33 * time.Millisecond) // ~30 FPS
 		}
-
-		buf := new(bytes.Buffer)
-		if err := jpeg.Encode(buf, img, nil); err != nil {
-			log.Printf("Error encoding image: %v", err)
-			c.String(http.StatusInternalServerError, "Error encoding image")
-			return
-		}
-
-		c.Writer.Write([]byte("--myboundary\r\n"))
-		c.Writer.Write([]byte("Content-Type: image/jpeg\r\n"))
-		c.Writer.Write([]byte("Content-Length: " + string(len(buf.Bytes())) + "\r\n\r\n"))
-		c.Writer.Write(buf.Bytes())
-		c.Writer.Write([]byte("\r\n"))
-
-		time.Sleep(33 * time.Millisecond) // ~30 FPS
 	}
 
 	log.Println("Exiting MJPEGStream function")
