@@ -65,7 +65,17 @@ func main() {
 	r.GET("/mjpeg", MJPEGStream)
 	r.GET("/", func(c *gin.Context) {
 		c.Header("Content-Type", "text/html")
-		c.String(http.StatusOK, `<img src="/mjpeg" />`)
+		c.String(http.StatusOK, `
+			<img id="webcam" src="/mjpeg" />
+			<script>
+				const img = document.getElementById('webcam');
+				img.addEventListener('load', () => {
+					setTimeout(() => {
+						img.src = "/mjpeg?rand=" + Math.random();
+					}, 50);
+				});
+			</script>
+		`)
 	})
 
 	r.Run(":8080")
