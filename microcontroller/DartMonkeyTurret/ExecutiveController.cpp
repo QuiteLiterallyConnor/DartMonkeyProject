@@ -182,8 +182,8 @@ const char* ExecutiveController::getConfigJsonString() {
     {
       "X_SERVO": { "pin": 1, "speed": 30, "starting_angle": 60, "angle_limit": 120 },
       "Y_SERVO": { "pin": 2, "speed": 50, "starting_angle": 45, "angle_limit": 90 },
-      "MOTOR_A_SERVO": { "pin": 3, "speed": 50, "starting_angle": 1, "angle_limit": 20 },
-      "MOTOR_B_SERVO": { "pin": 4, "speed": 50, "starting_angle": 19, "angle_limit": 20 },
+      "MOTOR_A_SERVO": { "pin": 3, "speed": 50, "starting_angle": 0, "angle_limit": 20 },
+      "MOTOR_B_SERVO": { "pin": 4, "speed": 50, "starting_angle": 20, "angle_limit": 20 },
       "MOTOR_A": { "pin": 5 },
       "MOTOR_B": { "pin": 6 }
     }

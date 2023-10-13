@@ -50,14 +50,15 @@ $(document).ready(function() {
     ws.onmessage = function(e) {
         line = e.data
 
-        console.log(line)
+        console.log(line) 
 
-        if (line.startsWith('%%%')) {
-            processSystemMessage(line);
-        } else {
+        processSystemMessage(line);
+        
+        if (!line.includes("%%%_HEARTBEAT")) {
             $('#messages').append(`<p>${e.data}</p>`);
             $('#messages').scrollTop($('#messages')[0].scrollHeight);
         }
+
         
     };
 

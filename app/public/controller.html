@@ -24,6 +24,7 @@
 
 <div class="container mt-5">
     <div class="row">
+
         <!-- Panel 1 -->
         <div class="col-md-4 border bg-dark">
             <h3 class="text-center">Status Display</h3>
@@ -51,7 +52,25 @@
                 <span>Servo B Angle Degree (-90 - 90):</span>
                 <span id="servoBDisplay">0°</span>
             </div>
+
+            <div id="arrows">
+                <div class="arrow d-flex justify-content-center align-items-center" id="up">
+                    <i class="bi bi-arrow-up"></i>
+                </div>
+                <div class="arrow d-flex justify-content-center align-items-center" id="left">
+                    <i class="bi bi-arrow-left"></i>
+                </div>
+                <div class="arrow d-flex justify-content-center align-items-center" id="right">
+                    <i class="bi bi-arrow-right"></i>
+                </div>
+                <div class="arrow d-flex justify-content-center align-items-center" id="down">
+                    <i class="bi bi-arrow-down"></i>
+                </div>
+            </div>
+
         </div>
+
+
         <!-- Panel 2 -->
         <div class="col-md-4 border bg-dark">
             <h3 class="text-center">Gamepad Controls</h3>
@@ -104,27 +123,11 @@
             <button id="uploadButton" class="btn btn-secondary">Upload and Send</button>
         </div>
 
-        <!-- Panel 4 -->
-        <div class="col-md-4 border bg-dark mt-3">
-            <div id="arrows">
-                <div class="arrow d-flex justify-content-center align-items-center" id="up">
-                    <i class="bi bi-arrow-up"></i>
-                </div>
-                <div class="arrow d-flex justify-content-center align-items-center" id="left">
-                    <i class="bi bi-arrow-left"></i>
-                </div>
-                <div class="arrow d-flex justify-content-center align-items-center" id="right">
-                    <i class="bi bi-arrow-right"></i>
-                </div>
-                <div class="arrow d-flex justify-content-center align-items-center" id="down">
-                    <i class="bi bi-arrow-down"></i>
-                </div>
-            </div>   
-        </div>
 
-        <!-- Combined Panel 5,6 -->
+
+        <!-- Combined Panel 4, 5 -->
         <div class="col-md-8 bg-dark mt-3 d-flex justify-content-center align-items-center" style="grid-row: span 2;">
-            <iframe id="livestream" src="http://127.0.0.1:6001/stream" width="100%" height="500" frameborder="0"></iframe>
+            <img id="livestream" src="0.0.0.0:6001/stream" alt="Camera Livestream">
         </div>
 
 
@@ -154,6 +157,10 @@
                     <button id="pingButton" class="btn btn-warning">Ping</button>
                 </div>
             </div> -->
+
+
+        <!-- Panel 6 -->
+        <div class="col-md-4 border bg-dark mt-3">Panel 6</div>
 
         <!-- Panel 7 -->
         <div class="col-md-4 border bg-dark mt-3">Panel 7</div>

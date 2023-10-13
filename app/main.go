@@ -473,6 +473,16 @@ func (s *Server) listenToFrontend(conn *websocket.Conn) {
 			if messageType == websocket.TextMessage {
 				message := strings.TrimSpace(string(p))
 				s.Serial.Write(message)
+
+				s.Mu.Lock()
+				for conn := range s.Connections {
+					if err := conn.WriteMessage(websocket.TextMessage, []byte("CONTROLLER: "+message)); err != nil {
+						fmt.Println("WebSocket write error:", err)
+						delete(s.Connections, conn)
+					}
+				}
+				s.Mu.Unlock()
+
 			}
 		}
 	}()
@@ -529,7 +539,7 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 			if s.updateStoredSystemState(line) || line == "%%%_HEARTBEAT" {
 				s.Mu.Lock()
 				for conn := range s.Connections {
-					if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
+					if err := conn.WriteMessage(websocket.TextMessage, []byte("MONKEY: "+line)); err != nil {
 						fmt.Println("WebSocket write error:", err)
 						delete(s.Connections, conn)
 					}

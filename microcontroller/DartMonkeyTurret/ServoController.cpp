@@ -8,9 +8,8 @@ void ServoController::initialize(std::string n, StaticJsonDocument<500> config) 
   startingAngle = config["starting_angle"];
   servo.attach(servoPin);
   servo.setEasingType(EASE_CUBIC_IN_OUT);
-  servo.easeTo(startingAngle, speed);
+  setAngle(startingAngle);
   delay(500);
-
   Serial.print("%%%_INFO:");
   Serial.print(name.c_str());
   Serial.print(": Ready to transmit Servo PWM signals at pin " );
@@ -37,8 +36,6 @@ void ServoController::setAngle(int angle) {
     print();
     servo.easeTo(angle, speed);
     // servo.write(angle);
-  } else {
-    print();
   }
 }
 
