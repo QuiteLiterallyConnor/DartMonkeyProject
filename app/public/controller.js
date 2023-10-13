@@ -2,9 +2,6 @@ const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + win
 const ws = new WebSocket(wsURL);
 const livestreamLocation = window.location.protocol + '//' + window.location.hostname + ':6001/stream';
 
-console.log(livestreamLocation);
-
-
 $(document).ready(function() {
     let intervalID; // To store the interval ID
 
@@ -25,7 +22,6 @@ $(document).ready(function() {
         clearInterval(intervalID);
     };
 
-    console.log(livestreamLocation);
     $("#livestream").attr("src", livestreamLocation);
 
     let lastHeartbeatTime = Date.now();
@@ -50,7 +46,7 @@ $(document).ready(function() {
     ws.onmessage = function(e) {
         line = e.data
 
-        console.log(line) 
+        console.log("received from backend: " + line) 
 
         processSystemMessage(line);
         
@@ -61,6 +57,8 @@ $(document).ready(function() {
 
         
     };
+
+    // UNCOMMENT FOR GO HLS
 
     // const video = document.getElementById('video');
     // const liveButton = document.getElementById('liveButton');
@@ -82,6 +80,14 @@ $(document).ready(function() {
     //     }
     // });
 
+    function extractCommandSubstring(inputString) {
+        const indexOfPercent = inputString.indexOf('%%%');
+        if (indexOfPercent !== -1) {
+          return inputString.substring(indexOfPercent);
+        } else {
+          return null;
+        }
+    }
 
     function processSystemMessage(line) {
         lastHeartbeatTime = Date.now();
@@ -115,21 +121,48 @@ $(document).ready(function() {
         }
     });
 
-    $('#uploadButton').click(function() {
+    $('#uploadButton').click(async function() {
         const file = $('#gcodeFile')[0].files[0];
         if (file) {
+            console.debug("File selected for processing.");
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const lines = e.target.result.split('\n');
-                for (let line of lines) {
-                    if (line.trim()) {
-                        ws.send(line.trim());
-                    }
-                }
+                await sendLinesToServer(lines);
             };
             reader.readAsText(file);
+        } else {
+            console.debug("No file selected.");
         }
     });
+    
+    async function sendLinesToServer(lines) {
+        for (let line of lines) {
+            line = line.trim();
+    
+            if (line.startsWith("#") || line.startsWith("//")) {
+                console.debug(`Skipping comment line: ${line}`);
+                continue; // Skip comments
+            }
+    
+            // Check if line matches "D[value]" pattern
+            const delayMatch = line.match(/^D(\d+)$/);
+            if (delayMatch) {
+                const delayValue = parseInt(delayMatch[1], 10);
+                console.debug(`Delay detected: ${delayValue}ms. Delaying...`);
+                await delay(delayValue);
+                console.debug(`Delay for ${delayValue}ms completed.`);
+            } else if (line) {
+                console.debug(`Sending line to server: ${line}`);
+                ws.send(line);
+            }
+        }
+    }
+    
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
 
     // Gamepad Controls
     $('#upButton').click(function() {

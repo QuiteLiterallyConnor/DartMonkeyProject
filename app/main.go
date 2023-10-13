@@ -317,7 +317,7 @@ func NewSerial(comPort string) *Serial {
 func (s *Serial) checkConnection() {
 	for {
 		if s.IsConnected {
-			s.sendHeartbeat()
+			// s.sendHeartbeat()
 		} else {
 			s.tryConnect()
 		}
@@ -534,18 +534,21 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 		}
 
 		line = strings.TrimSpace(line)
+
+		fmt.Printf("RECEIVED FROM MONKEY: %v\n", line)
+
 		if strings.HasPrefix(line, "%%%") {
 
-			if s.updateStoredSystemState(line) || line == "%%%_HEARTBEAT" {
-				s.Mu.Lock()
-				for conn := range s.Connections {
-					if err := conn.WriteMessage(websocket.TextMessage, []byte("MONKEY: "+line)); err != nil {
-						fmt.Println("WebSocket write error:", err)
-						delete(s.Connections, conn)
-					}
+			s.updateStoredSystemState(line)
+			s.Mu.Lock()
+			for conn := range s.Connections {
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
+					fmt.Println("WebSocket write error:", err)
+					delete(s.Connections, conn)
 				}
-				s.Mu.Unlock()
 			}
+			s.Mu.Unlock()
+
 		}
 
 	}

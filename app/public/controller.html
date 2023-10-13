@@ -125,14 +125,14 @@
 
 
 
-        <!-- Combined Panel 4, 5 -->
+        <!-- Combined Panel 4, 5 FOR PYTHON HOSTED STREAMING -->
         <div class="col-md-8 bg-dark mt-3 d-flex justify-content-center align-items-center" style="grid-row: span 2;">
-            <img id="livestream" src="0.0.0.0:6001/stream" alt="Camera Livestream">
+            <img id="livestream" src="" alt="Camera Livestream">
         </div>
 
 
-        <!-- UNCOMMENT FOR HLS STREAMING-->
-            <!-- Combined Panel 5 -->
+        <!-- UNCOMMENT FOR GO HOSTED HLS STREAMING-->
+        <!-- Combined Panel 4, 5 FOR GO HOSTED HLS STREAMING -->
             <!-- <div class="col-md-8 bg-dark mt-3 d-flex justify-content-center align-items-center" style="grid-row: span 2;">
                 <div class="video-container">
                     <video id="video" class="video-js vjs-default-skin" muted preload="auto" data-setup='{}'>
@@ -142,25 +142,23 @@
                 </div>
             </div> -->
             
-            <!-- Panel 6 -->
-            <!-- <div class="col-md-4 border bg-dark mt-3">
-                <h3 class="text-center">Microcontroller Connection</h3>
-                <div class="d-flex justify-content-center mt-3">
-                    <div id="connectionStatus" class="bg-danger rounded-circle" style="width: 20px; height: 20px;"></div>
-                    <span class="ml-2" id="connectionLabel">Connecting...</span>
-                </div>
-                <div class="d-flex justify-content-center mt-3">
-                    <span>Last Heartbeat: </span>
-                    <span id="heartbeatTimer" class="ml-2">0s</span>
-                </div>
-                <div class="d-flex justify-content-center mt-3">
-                    <button id="pingButton" class="btn btn-warning">Ping</button>
-                </div>
-            </div> -->
-
-
         <!-- Panel 6 -->
-        <div class="col-md-4 border bg-dark mt-3">Panel 6</div>
+        <div class="col-md-4 border bg-dark mt-3">
+            <h3 class="text-center">Microcontroller Connection</h3>
+            <div class="d-flex justify-content-center mt-3">
+                <div id="connectionStatus" class="bg-danger rounded-circle" style="width: 20px; height: 20px;"></div>
+                <span class="ml-2" id="connectionLabel">Connecting...</span>
+            </div>
+            <div class="d-flex justify-content-center mt-3">
+                <span>Last Heartbeat: </span>
+                <span id="heartbeatTimer" class="ml-2">0s</span>
+            </div>
+            <div class="d-flex justify-content-center mt-3">
+                <button id="pingButton" class="btn btn-warning">Ping</button>
+            </div>
+        </div>
+
+
 
         <!-- Panel 7 -->
         <div class="col-md-4 border bg-dark mt-3">Panel 7</div>
@@ -179,14 +177,15 @@
 <script src="https://vjs.zencdn.net/7.8.4/video.js"></script>
 
 <script>
-    var player = videojs('video');
-    player.controls(false); // Hide video controls
+    // UNCOMMENT FOR GO HLS 
+    // var player = videojs('video');
+    // player.controls(false); // Hide video controls
 
-    // Attempt to play the video
-    player.play().catch(function() {
-        console.log('Autoplay was prevented.');
-        // You can add a button or other UI element to play the video here
-    });
+    // // Attempt to play the video
+    // player.play().catch(function() {
+    //     console.log('Autoplay was prevented.');
+    //     // You can add a button or other UI element to play the video here
+    // });
 </script>
 
 </body>
