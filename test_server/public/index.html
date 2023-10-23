@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Test Data:</h1>
+    <p>Name: <span id="name"></span></p>
+    <p>Age: <span id="age"></span></p>
+    <p>Message: <span id="message"></span></p>
+
+    <script>
+        $(document).ready(function(){
+            $.ajax({
+                url: '/data',
+                method: 'GET',
+                success: function(data) {
+                    $('#name').text(data.name);
+                    $('#age').text(data.age);
+                    $('#message').text(data.message);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

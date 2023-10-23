@@ -3,13 +3,9 @@ const ws = new WebSocket(wsURL);
 const livestreamLocation = window.location.protocol + '//' + window.location.hostname + ':6001/stream';
 
 $(document).ready(function() {
-    let intervalID; // To store the interval ID
+    let intervalID;
 
-    // Limits
-    const MAX_ANGLE = 90;
-    const MIN_ANGLE = -90;
-    const MAX_SPEED = 100;
-    const MIN_SPEED = 0;
+    getServerData();
 
     ws.onopen = function() {
         console.log('Connected to the WebSocket');
@@ -17,12 +13,11 @@ $(document).ready(function() {
 
     ws.onclose = function() {
         console.log('WebSocket connection closed');
-
-        // Clear the interval when the WebSocket disconnects
         clearInterval(intervalID);
     };
 
     $("#livestream").attr("src", livestreamLocation);
+
 
     let lastHeartbeatTime = Date.now();
     let heartbeatInterval;
@@ -42,21 +37,134 @@ $(document).ready(function() {
     // Start the heartbeat timer
     heartbeatInterval = setInterval(updateHeartbeatTimer, 1000);
 
-    // When a message is received, check if it's a heartbeat
+    let lastMessage;
+    let consecutiveDuplicateCount = 0;
+    let inHeartbeatBlock = false;
+    
     ws.onmessage = function(e) {
-        line = e.data
-
-        console.log("received from backend: " + line) 
-
-        processSystemMessage(line);
-        
-        if (!line.includes("%%%_HEARTBEAT")) {
-            $('#messages').append(`<p>${e.data}</p>`);
-            $('#messages').scrollTop($('#messages')[0].scrollHeight);
-        }
-
-        
+        const dataObj = JSON.parse(e.data);
+        processMessage(dataObj);
     };
+
+    function processMessage(dataObj) {
+        const sender = dataObj.sender;
+        const message = dataObj.message;
+
+        // console.log("sender: " + sender + ", msg: " + message);
+
+        processSystemMessage(message);
+    
+        if (message.includes("%%%_ACK:H") || message.includes("HEARTBEAT_TAG")) {
+            return;
+        }
+    
+        if (message.includes("%%%_HEARTBEAT_START")) {
+            inHeartbeatBlock = true;
+            return; // Ignore and don't append anything yet
+        }
+    
+        if (message.includes("%%%_HEARTBEAT_END")) {
+            inHeartbeatBlock = false;
+            if (lastMessage === "Heartbeat") {
+                consecutiveDuplicateCount++;
+                setLastLine(sender, `Heartbeat${consecutiveDuplicateCount > 0 ? ` (${consecutiveDuplicateCount + 1})` : ''}`);
+            } else {
+                consecutiveDuplicateCount = 0;
+                appendToConsoleTextBox(sender, "Heartbeat");
+            }
+            lastMessage = "Heartbeat";
+            return; // Stop processing, as we've finished the heartbeat block
+        }
+    
+        if (!inHeartbeatBlock) {
+            if (lastMessage === message) {
+                consecutiveDuplicateCount++;
+                setLastLine(sender, `${message} (${consecutiveDuplicateCount + 1})`);
+            } else {
+                consecutiveDuplicateCount = 0;
+                appendToConsoleTextBox(sender, message);
+            }
+            lastMessage = message;
+        }
+    }
+    
+    
+    function getServerData() {
+        $.ajax({
+            url: '/data',
+            method: 'GET',
+            success: function(data) {
+                console.log(data);
+
+                $('#xDisplay').text(data.system_states.X_SERVO_POS.toString().trim()+ '°');
+                $('#yDisplay').text(data.system_states.Y_SERVO_POS.toString().trim()+ '°');
+                $('#servoADisplay').text(data.system_states.MOTOR_A_SERVO_POS.toString().trim() + '°');
+                $('#servoBDisplay').text(data.system_states.MOTOR_B_SERVO_POS.toString().trim() + '°');
+                $('#motorADisplay').text(data.system_states.MOTOR_A_SPEED.toString().trim());
+                $('#motorBDisplay').text(data.system_states.MOTOR_B_SPEED.toString().trim());
+
+                if (data.is_connected) {
+                    $('#connectionLabel').text('Connected');
+                    updateHeartbeatTimer();
+                }
+
+                $('#valueBox').val(data.heartbeat_interval);
+
+                $.each(data.serial_buffer, function(i, d) {
+                    processMessage(d);
+                });
+
+            }
+        });
+    }
+
+    function setLastLine(sender, text) {
+        const senderColor = hashToColor(stringToHash(sender));
+        const messageColor = "rgb(0, 255, 0)";
+        $('#messages p:last-child').html(`<span style="color:${senderColor}">${sender}:</span> <span style="color:${messageColor}">${text}</span>`);
+    }
+    
+    function appendToConsoleTextBox(sender, message) {
+        const senderColor = hashToColor(stringToHash(sender));
+        const messageColor = "rgb(0, 255, 0)";
+        $('#messages').append(`<p><span style="color:${senderColor}">${sender}:</span> <span style="color:${messageColor}">${message}</span></p>`);
+        $('#messages').scrollTop($('#messages')[0].scrollHeight);
+    }
+    
+    
+    $('#increaseFont').click(function() {
+        let currentSize = parseInt($('#fontSize').val());
+        let newSize = currentSize + 1;
+        $('#fontSize').val(newSize + 'px');
+        $('#messages').css('font-size', newSize + 'px');
+    });
+
+    $('#decreaseFont').click(function() {
+        let currentSize = parseInt($('#fontSize').val());
+        if (currentSize > 1) {
+            let newSize = currentSize - 1;
+            $('#fontSize').val(newSize + 'px');
+            $('#messages').css('font-size', newSize + 'px');
+        }
+    });
+
+    function stringToHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return hash;
+    }
+
+    function hashToColor(hash) {
+        const red = (hash & 0xFF0000) >> 16;
+        const green = (hash & 0x00FF00) >> 8;
+        const blue = hash & 0x0000FF;
+        return `#${red.toString(16).padStart(2, '0')}${green.toString(16).padStart(2, '0')}${blue.toString(16).padStart(2, '0')}`;
+    }
+    
 
     // UNCOMMENT FOR GO HLS
 
@@ -80,18 +188,9 @@ $(document).ready(function() {
     //     }
     // });
 
-    function extractCommandSubstring(inputString) {
-        const indexOfPercent = inputString.indexOf('%%%');
-        if (indexOfPercent !== -1) {
-          return inputString.substring(indexOfPercent);
-        } else {
-          return null;
-        }
-    }
-
     function processSystemMessage(line) {
         lastHeartbeatTime = Date.now();
-        $('#connectionStatus').removeClass('bg-danger').addClass('bg-success');
+        $('#connectionStatus').removeClass('bg-danger').removeClass('bg-warning').addClass('bg-success');
         $('#connectionLabel').text('Connected');
 
 
@@ -112,6 +211,25 @@ $(document).ready(function() {
         }
 
     }
+
+    $('#incrementButton').click(function() {
+        let valueBox = $('#valueBox');
+        valueBox.val(parseInt(valueBox.val()) + 1);
+    });
+
+    $('#decrementButton').click(function() {
+        let valueBox = $('#valueBox');
+        let currentValue = parseInt(valueBox.val());
+        if(currentValue > 0) { 
+            valueBox.val(currentValue - 1);
+        }
+    });
+
+    $('#setButton').click(function() {
+        let value = parseInt($('#valueBox').val());
+        ws.send("%%%_SERVER:HEARTBEAT_INTERVAL:" + value);
+    });
+
 
     $('#sendButton').click(function() {
         const command = $('#command').val().trim();

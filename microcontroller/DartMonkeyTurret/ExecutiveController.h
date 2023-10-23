@@ -2,15 +2,21 @@
 #define EXECUTIVECONTROLLER_H
 
 #include <algorithm>
+#include <ArduinoJson.h>
 #include <Arduino.h>
+#include <avr/pgmspace.h>
+#include <cstdlib>
+#include <ctime>
+#include <functional>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <string>
-#include <functional>
-#include <ArduinoJson.h>
-#include <TeensyThreads.h>
 #include <stdint.h>
+#include <TeensyThreads.h>
+#include <TimeLib.h>
 #include <vector>
+
 #include "ServoController.h"
 #include "ESCController.h"
 
@@ -24,6 +30,15 @@
 void adam();
 void handleReceivedTinyIRData(uint16_t aAddress, uint8_t aButton, bool isRepeat);
 void init_controllers();
+
+struct DateTime {
+    int Year;
+    int Month;
+    int Day;
+    int Hour;
+    int Minute;
+    int Second;
+};
 
 class SerialController {
 public:
@@ -50,14 +65,29 @@ private:
     void wait(std::string cmd);
 };
 
+
 class ExecutiveController {
 public:
     int initialize();
     void Reset();
+    std::string GetSessionKey();
+    void PrintSessionKey();
+    void SetSystemTime(std::string coded_string);
+    void RequestServerTime();
+    void HandleGcodeCommand(std::string cmd);
+    void PrintHeartbeat();
 private:
+    void storeTransmittedMessage(const char * msg);
+    void setSessionKey(std::string key);
+    DateTime decodeUnixTimestampString(const std::string& unixTimestampStr);
+    std::string generateSessionKey();
+    char randomChar();
+    std::string convertToHex(const std::string &input);
     int loadConfig();
     const char* getConfigJsonString();
     StaticJsonDocument<512> doc;
+    std::string sessionKey;
+    std::vector<std::string> transmittedMessages;
 };
 
 #endif

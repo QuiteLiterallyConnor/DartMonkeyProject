@@ -10,17 +10,17 @@ ServoController motorBServoController;
 SerialController serialController;
 
 void print_status() {
-  Serial.print("%%%_X_SERVO_POS:");
+  Serial.print("%%%_HEARTBEAT_%%%_X_SERVO_POS:");
   Serial.println(xRotationController.getCurrentAngle());
-  Serial.print("%%%_Y_SERVO_POS:");
+  Serial.print("%%%_HEARTBEAT_%%%_Y_SERVO_POS:");
   Serial.println(yRotationController.getCurrentAngle());
-  Serial.print("%%%_MOTOR_A_SERVO_POS:");
+  Serial.print("%%%_HEARTBEAT_%%%_MOTOR_A_SERVO_POS:");
   Serial.println(motorAServoController.getCurrentAngle());
-  Serial.print("%%%_MOTOR_B_SERVO_POS:");
+  Serial.print("%%%_HEARTBEAT_%%%_MOTOR_B_SERVO_POS:");
   Serial.println(motorBServoController.getCurrentAngle());
-  Serial.print("%%%_MOTOR_A_SPEED:");
+  Serial.print("%%%_HEARTBEAT_%%%_MOTOR_A_SPEED:");
   Serial.println(motorAController.getCurrentSpeed());
-  Serial.print("%%%_MOTOR_B_SPEED:");
+  Serial.print("%%%_HEARTBEAT_%%%_MOTOR_B_SPEED:");
   Serial.println(motorBController.getCurrentSpeed());
 }
 
@@ -34,14 +34,13 @@ void adam() {
 
 std::map<std::string, SerialController::Command> SerialController::initializeCommandMap() {
     return {
-        {"R",  {"Hard Restart",  [&](std::string cmd) { executiveController.Reset();                            return true;  }}},
-        {"X",  {"X axis",         [&](std::string cmd) { xRotationController.handleGcodeCommand(cmd);            return true;  }}},
-        {"Y",  {"Y axis",         [&](std::string cmd) { yRotationController.handleGcodeCommand(cmd);            return true;  }}},
-        {"A",  {"A servo",       [&](std::string cmd) { motorAServoController.handleGcodeCommand(cmd);          return false; }}},
-        {"B",  {"B servo",       [&](std::string cmd) { motorBServoController.handleGcodeCommand(cmd);          return false; }}},
-        {"C",  {"A motor",       [&](std::string cmd) { motorAController.handleGcodeCommand(cmd);               return true;  }}},                                                    
-        {"D",  {"B motor",       [&](std::string cmd) { motorBController.handleGcodeCommand(cmd);               return true;  }}},
-        {"H",  {"Heartbeat",      [&](std::string cmd) { Serial.println("%%%_HEARTBEAT"); print_status();        return true;  }}}
+        {"E",  {"Executive Controller",           [&](std::string cmd) { executiveController.HandleGcodeCommand(cmd);           return true;  }}},
+        {"X",  {"X axis",                         [&](std::string cmd) { xRotationController.handleGcodeCommand(cmd);            return true;  }}},
+        {"Y",  {"Y axis",                         [&](std::string cmd) { yRotationController.handleGcodeCommand(cmd);            return true;  }}},
+        {"A",  {"A servo",                        [&](std::string cmd) { motorAServoController.handleGcodeCommand(cmd);          return false; }}},
+        {"B",  {"B servo",                        [&](std::string cmd) { motorBServoController.handleGcodeCommand(cmd);          return false; }}},
+        {"C",  {"A motor",                        [&](std::string cmd) { motorAController.handleGcodeCommand(cmd);               return true;  }}},                                                    
+        {"D",  {"B motor",                        [&](std::string cmd) { motorBController.handleGcodeCommand(cmd);               return true;  }}},
     };
 }
 
@@ -88,9 +87,8 @@ void SerialController::processSerialInput() {
         if (incomingChar == '\n' || incomingChar == '\r') {
             inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\n'), inputBuffer.end());
             inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\r'), inputBuffer.end());
-            Serial.print("%%%_ACK:");
-            Serial.println(inputBuffer.c_str());
             blinkLED();
+            Serial.flush();
 
             if (isValidCommand(inputBuffer)) {
                 handleCommand(inputBuffer);
@@ -146,12 +144,32 @@ void SerialController::handleCommand(const std::string& cmd) {
     command.action(stdcmd);
 }
 
+void ExecutiveController::storeTransmittedMessage(const char * msg) {
+    std::string msgStr = msg;
+    if (msgStr.find("HEARTBEAT") == std::string::npos) { // heartbeat not found in string
+      transmittedMessages.push_back(msg);
+    }
+}
+
 int ExecutiveController::initialize() {
+    Serial.println("%%%_INFO: EXECUTIVE CONTROLLER: STARTING SETUP");
     if (loadConfig()) {
       Serial.println("%%%_ERR:INVALID_CONFIG");
       return 1;
     }
+    // Serial.setWriteHandler(storeTransmittedMessage);
+    // std::string key = generateSessionKey();
+    // setSessionKey(key);
+    Serial.println("%%%_INFO: EXECUTIVE CONTROLLER: FINISHED SETUP");
+    // PrintSessionKey();
     return 0;
+}
+
+void ExecutiveController::PrintHeartbeat() {
+  Serial.println("%%%_HEARTBEAT_TAG");
+  Serial.println("%%%_HEARTBEAT_START"); 
+  print_status(); 
+  Serial.println("%%%_HEARTBEAT_END");
 }
 
 void ExecutiveController::Reset() {
@@ -188,4 +206,85 @@ const char* ExecutiveController::getConfigJsonString() {
       "MOTOR_B": { "pin": 6 }
     }
     )json";
+}
+
+void ExecutiveController::HandleGcodeCommand(std::string cmd) {
+  char actionType = cmd[1];
+  if (actionType == 'T') {
+    int unix_len = 10;
+    if (cmd.length() > static_cast<std::string::size_type>(2 + unix_len)) {
+      SetSystemTime(cmd.substr(2));
+    }
+  } else if (actionType == 'H') {
+    PrintHeartbeat();
+  } else if (actionType == 'R') {
+    Reset();
+  } else if (actionType == 'K') {
+    PrintSessionKey();
+  }
+}
+
+void ExecutiveController::RequestServerTime() {
+  Serial.println("%%%_SERVER:REQ_TIME");
+}
+
+void ExecutiveController::SetSystemTime(std::string coded_string) {
+  DateTime t = decodeUnixTimestampString(coded_string);
+  setTime(t.Hour, t.Minute, t.Second, t.Day, t.Month, t.Year);
+}
+
+DateTime ExecutiveController::decodeUnixTimestampString(const std::string& unixTimestampStr) {
+    time_t rawtime = std::stoll(unixTimestampStr);
+    struct tm * ptm = gmtime(&rawtime);
+
+    DateTime t = {
+        .Year = ptm->tm_year + 1900,
+        .Month = ptm->tm_mon + 1,
+        .Day = ptm->tm_mday,
+        .Hour = ptm->tm_hour,
+        .Minute = ptm->tm_min,
+        .Second = ptm->tm_sec
+    };
+
+    return t;
+}
+
+std::string ExecutiveController::generateSessionKey() {
+  unsigned long currentTime = now(); 
+  unsigned long randomNumber = random(100000, 999999);
+  std::string randomString = "";
+  for (int i = 0; i < 5; i++) {
+    randomString += randomChar();
+  }
+  std::string combinedString = std::to_string(currentTime) + std::to_string(randomNumber) + randomString;
+  std::string hexString = convertToHex(combinedString);
+  return hexString;
+}
+
+void ExecutiveController::setSessionKey(std::string key) {
+  sessionKey = key;
+}
+
+void ExecutiveController::PrintSessionKey() {
+  Serial.print("%%%_SERVER:SESSION_KEY:");
+  Serial.println(GetSessionKey().c_str());
+}
+
+std::string ExecutiveController::GetSessionKey() {
+  return sessionKey;
+}
+
+char ExecutiveController::randomChar() {
+  const char chars[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  int randomValue = random(0, sizeof(chars) - 2);
+  return chars[randomValue];
+}
+
+std::string ExecutiveController::convertToHex(const std::string &input) {
+  std::stringstream hexStream;
+  for (unsigned int i = 0; i < input.size(); i++) {
+    char c = input[i];
+    hexStream << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+  }
+  return hexStream.str();
 }
