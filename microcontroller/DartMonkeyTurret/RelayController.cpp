@@ -1,13 +1,15 @@
 #include "RelayController.h"
 
-void RelayController::initialize(std::string n, StaticJsonDocument<500> config) {
-  name = n;
-  relayPin = config["pin"];
-  pinMode(relayPin, OUTPUT);
-  digitalWrite(relayPin, LOW); // Initialize in an OFF state
-  Serial.print("%%%_INFO:");
-  Serial.print(name.c_str());
-  Serial.println(": Relay initialized and set to OFF.");
+void RelayController::initialize(std::string n, StaticJsonDocument<1024> config) {
+    name = n;
+    relayPin = config["pin"];
+    pinMode(relayPin, OUTPUT);
+    digitalWrite(relayPin, LOW); // Initialize in an OFF state
+    std::string tmp;
+    tmp += "%%%_INFO:";
+    tmp += name;
+    tmp += ": Relay initialized and set to OFF.";
+    Serial.println(tmp.c_str());
 }
 
 void RelayController::handleGcodeCommand(std::string cmd) {
@@ -48,8 +50,11 @@ std::string RelayController::getName() {
 }
 
 void RelayController::printState() {
-  Serial.print("%%%_");
-  Serial.print(name.c_str());
-  Serial.print("_STATE:");
-  Serial.println(currentState ? "ON" : "OFF");
+    std::string tmp;
+    tmp += "%%%_";
+    tmp += name;
+    tmp += "_STATE:";
+    tmp += (currentState ? "ON" : "OFF");
+    
+    Serial.println(tmp.c_str());
 }

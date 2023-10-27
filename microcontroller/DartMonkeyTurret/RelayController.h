@@ -8,7 +8,7 @@
 class RelayController {
 public:
     RelayController() {}
-    void initialize(std::string n, StaticJsonDocument<500> config);
+    void initialize(std::string n, StaticJsonDocument<1024> config);
     void handleGcodeCommand(std::string cmd);
     void setOn();
     void setOff();

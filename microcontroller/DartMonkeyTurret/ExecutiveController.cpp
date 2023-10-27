@@ -12,25 +12,29 @@ RelayController motorARelayController;
 RelayController motorBRelayController;
 
 void print_status() {
-  Serial.print("%%%_HEARTBEAT_%%%_X_SERVO_POS:");
-  Serial.println(xRotationController.getCurrentAngle());
-  Serial.print("%%%_HEARTBEAT_%%%_Y_SERVO_POS:");
-  Serial.println(yRotationController.getCurrentAngle());
-  Serial.print("%%%_HEARTBEAT_%%%_MOTOR_A_SERVO_POS:");
-  Serial.println(motorAServoController.getCurrentAngle());
-  Serial.print("%%%_HEARTBEAT_%%%_MOTOR_B_SERVO_POS:");
-  Serial.println(motorBServoController.getCurrentAngle());
-  Serial.print("%%%_HEARTBEAT_%%%_MOTOR_A_SPEED:");
-  Serial.println(motorAController.getCurrentSpeed());
-  Serial.print("%%%_HEARTBEAT_%%%_MOTOR_B_SPEED:");
-  Serial.println(motorBController.getCurrentSpeed());
+  std::string tmp;
+  tmp = "%%%_HEARTBEAT_%%%_X_SERVO_POS:" + std::to_string(xRotationController.getCurrentAngle());
+  Serial.println(tmp.c_str());
+  tmp = "%%%_HEARTBEAT_%%%_Y_SERVO_POS:" + std::to_string(yRotationController.getCurrentAngle());
+  Serial.println(tmp.c_str());
+  tmp = "%%%_HEARTBEAT_%%%_MOTOR_A_SERVO_POS:" + std::to_string(motorAServoController.getCurrentAngle());
+  Serial.println(tmp.c_str());
+  tmp = "%%%_HEARTBEAT_%%%_MOTOR_B_SERVO_POS:" + std::to_string(motorBServoController.getCurrentAngle());
+  Serial.println(tmp.c_str());
+  tmp = "%%%_HEARTBEAT_%%%_MOTOR_A_SPEED:" + std::to_string(motorAController.getCurrentSpeed());
+  Serial.println(tmp.c_str());
+  tmp = "%%%_HEARTBEAT_%%%_MOTOR_B_SPEED:" + std::to_string(motorBController.getCurrentSpeed());
+  Serial.println(tmp.c_str());
+  tmp = "%%%_HEARTBEAT_%%%_MOTOR_A_RELAY_STATE:" + std::to_string(motorARelayController.state());
+  Serial.println(tmp.c_str());
+  tmp = "%%%_HEARTBEAT_%%%_MOTOR_B_RELAY_STATE:" + std::to_string(motorBRelayController.state());
+  Serial.println(tmp.c_str());
 }
 
 void adam() {
 
   serialController.handleSerial();
-
-
+  Serial.flush();
 
 }
 
@@ -66,14 +70,16 @@ void blinkLED() {
 
 void init_controllers() {
   if (executiveController.initialize()) {
-    Serial.println("%%%_ERR:EXEC_CONTROLLER:INIT_FAILED");
+    std::string tmp = "%%%_ERR:EXEC_CONTROLLER:INIT_FAILED";
+    Serial.println(tmp.c_str());
   }
 }
 
 void SerialController::initialize(std::map<std::string, Command> cmdMap) {
   commandMap = cmdMap;
   threads.addThread(blink_thread, 0);
-  Serial.println("%%%_INFO:EXECUTIVE_CONTROLLER:Finished init");
+  std::string tmp = "%%%_INFO:EXECUTIVE_CONTROLLER:Finished init";
+  Serial.println(tmp.c_str());
 }
 
 void SerialController::handleSerial() {
@@ -94,17 +100,25 @@ void SerialController::processSerialInput() {
             blinkLED();
             Serial.flush();
 
-            if (isValidCommand(inputBuffer)) {
-                handleCommand(inputBuffer);
-            } else {
-                Serial.print("%%%_ERR:INVALID_CMD:");
-                Serial.println(inputBuffer.c_str());
+            char *token = strtok(&inputBuffer[0], ";");
+            while(token != NULL) {
+                std::string command = token;
+                command.erase(std::remove_if(command.begin(), command.end(), ::isspace), command.end());
+                if (isValidCommand(command)) {
+                    handleCommand(command);
+                } else {
+                    std::string error_msg = "%%%_ERR:INVALID_CMD:" + command;
+                    Serial.println(error_msg.c_str());
+                }
+
+                token = strtok(NULL, ";");
             }
 
             inputBuffer = "";
         }
     }
 }
+
 
 bool SerialController::isValidCommand(const std::string& cmd) {
     if (cmd.empty()) return false;
@@ -158,7 +172,9 @@ int ExecutiveController::initialize() {
 
     sessionKey = "NOT_SET";
 
-    Serial.println("%%%_INFO: EXECUTIVE CONTROLLER: STARTING SETUP");
+    std::string tmp = "%%%_INFO: EXECUTIVE CONTROLLER: STARTING SETUP";
+    Serial.println(tmp.c_str());
+
     if (loadConfig()) {
       Serial.println("%%%_ERR:INVALID_CONFIG");
       return 1;
@@ -166,16 +182,23 @@ int ExecutiveController::initialize() {
     // Serial.setWriteHandler(storeTransmittedMessage);
     // std::string key = generateSessionKey();
     // setSessionKey(key);
-    Serial.println("%%%_INFO: EXECUTIVE CONTROLLER: FINISHED SETUP");
+    tmp = "%%%_INFO: EXECUTIVE CONTROLLER: FINISHED SETUP";
+    Serial.println(tmp.c_str());
     // PrintSessionKey();
     return 0;
 }
 
 void ExecutiveController::PrintHeartbeat() {
-  Serial.println("%%%_HEARTBEAT_TAG");
-  Serial.println("%%%_HEARTBEAT_START"); 
-  print_status(); 
-  Serial.println("%%%_HEARTBEAT_END");
+  std::string tmp = "%%%_HEARTBEAT_TAG";
+  Serial.println(tmp.c_str());
+
+  tmp = "%%%_HEARTBEAT_START";
+  Serial.println(tmp.c_str());
+
+  print_status();
+
+  tmp = "%%%_HEARTBEAT_END";
+  Serial.println(tmp.c_str());
 }
 
 void ExecutiveController::Reset() {
@@ -203,18 +226,34 @@ int ExecutiveController::loadConfig() {
     return 0;
 }
 
+// const char* ExecutiveController::getConfigJsonString() {
+//     return R"json(
+//     {
+//       "X_SERVO": { "pin": 2, "speed": 30, "starting_angle": 60, "angle_limit": 120, "interpolation": "ease" },
+//       "Y_SERVO": { "pin": 4, "speed": 50, "starting_angle": 45, "angle_limit": 100, "interpolation": "ease" },
+//       "MOTOR_A_SERVO": { "pin": 6, "speed": 50, "starting_angle": 0, "angle_limit": 20, "interpolation": "linear" },
+//       "MOTOR_B_SERVO": { "pin": 8, "speed": 50, "starting_angle": 20, "angle_limit": 20, "interpolation": "linear" },
+//       "MOTOR_A": { "pin": 10 },
+//       "MOTOR_B": { "pin": 15 }
+//     }
+//     )json";
+// }
+
 const char* ExecutiveController::getConfigJsonString() {
     return R"json(
     {
-      "X_SERVO": { "pin": 1, "speed": 30, "starting_angle": 60, "angle_limit": 120 },
-      "Y_SERVO": { "pin": 2, "speed": 50, "starting_angle": 45, "angle_limit": 90 },
-      "MOTOR_A_SERVO": { "pin": 3, "speed": 50, "starting_angle": 0, "angle_limit": 20 },
-      "MOTOR_B_SERVO": { "pin": 4, "speed": 50, "starting_angle": 20, "angle_limit": 20 },
-      "MOTOR_A": { "pin": 5 },
-      "MOTOR_B": { "pin": 6 }
+      "X_SERVO": { "pin": 2, "speed": 30, "starting_angle": 60, "angle_limit": 120, "interpolation": "ease" },
+      "Y_SERVO": { "pin": 4, "speed": 50, "starting_angle": 45, "angle_limit": 100, "interpolation": "ease" },
+      "MOTOR_A_SERVO": { "pin": 6, "speed": 50, "starting_angle": 0, "angle_limit": 20, "interpolation": "linear" },
+      "MOTOR_B_SERVO": { "pin": 8, "speed": 50, "starting_angle": 20, "angle_limit": 20, "interpolation": "linear" },
+      "MOTOR_A": { "pin": 10 },
+      "MOTOR_B": { "pin": 15 },
+      "MOTOR_A_RELAY": { "pin": 17 },
+      "MOTOR_B_RELAY": { "pin": 19 }
     }
     )json";
-}
+}    
+
 
 void ExecutiveController::HandleGcodeCommand(std::string cmd) {
   char actionType = cmd[1];
@@ -274,8 +313,8 @@ void ExecutiveController::setSessionKey(std::string key) {
 }
 
 void ExecutiveController::PrintSessionKey() {
-  Serial.print("%%%_SERVER:SESSION_KEY:");
-  Serial.println(GetSessionKey().c_str());
+  std::string tmp = "%%%_SERVER:SESSION_KEY:" + GetSessionKey();
+  Serial.println(tmp.c_str());
 }
 
 std::string ExecutiveController::GetSessionKey() {

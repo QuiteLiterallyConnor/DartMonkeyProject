@@ -1,14 +1,16 @@
 #include "ESCController.h"
 
-void ESCController::initialize(std::string n, StaticJsonDocument<500> config) {
-  name = n;
-  controllerPin = config["pin"];
-  controller.attach(controllerPin);    
-  sync();
-  Serial.print("%%%_INFO:");
-  Serial.print(name.c_str());
-  Serial.print(": Ready to transmit ESC PWM signals at pin " );
-  Serial.println(controllerPin);
+void ESCController::initialize(std::string n, StaticJsonDocument<1024> config) {
+    name = n;
+    controllerPin = config["pin"];
+    controller.attach(controllerPin);    
+    sync();
+    std::string tmp;
+    tmp += "%%%_INFO:";
+    tmp += name;
+    tmp += ": Ready to transmit ESC PWM signals at pin ";
+    tmp += std::to_string(controllerPin);
+    Serial.println(tmp.c_str());
 }
 
 void ESCController::sync() {
@@ -64,8 +66,10 @@ int ESCController::speedToPulseWidth(int speed) const {
 }
 
 void ESCController::print() {
-    Serial.print("%%%_");
-    Serial.print(name.c_str());
-    Serial.print("_SPEED:");
-    Serial.println(currentSpeed);
+    std::string tmp;
+    tmp += "%%%_";
+    tmp += name;
+    tmp += "_SPEED:";
+    tmp += std::to_string(currentSpeed);
+    Serial.println(tmp.c_str());
 }

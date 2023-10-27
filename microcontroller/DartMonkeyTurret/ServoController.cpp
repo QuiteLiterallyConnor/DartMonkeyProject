@@ -1,19 +1,31 @@
 #include "ServoController.h"
 
-void ServoController::initialize(std::string n, StaticJsonDocument<500> config) {
+void ServoController::initialize(std::string n, StaticJsonDocument<1024> config) {
   name = n;
   servoPin = config["pin"];
   speed = config["speed"];
   angle_limit = config["angle_limit"];
   startingAngle = config["starting_angle"];
+  interpolation = config["interpolation"].as<std::string>();
   servo.attach(servoPin);
-  servo.setEasingType(EASE_CUBIC_IN_OUT);
+
+  if (interpolation == "linear") {
+    servo.setEasingType(EASE_LINEAR);
+  } else if (interpolation == "ease") {
+    servo.setEasingType(EASE_CUBIC_IN_OUT);
+  } else {
+    servo.setEasingType(EASE_LINEAR);
+  }
+
   setAngle(startingAngle);
   delay(500);
-  Serial.print("%%%_INFO:");
-  Serial.print(name.c_str());
-  Serial.print(": Ready to transmit Servo PWM signals at pin " );
-  Serial.println(servoPin);
+  std::string tmp;
+  tmp += "%%%_INFO:";
+  tmp += name;
+  tmp += ": Ready to transmit Servo PWM signals at pin ";
+  tmp += std::to_string(servoPin);
+  
+  Serial.println(tmp.c_str());
 }
 
 void ServoController::handleGcodeCommand(std::string cmd) {
@@ -48,8 +60,11 @@ std::string ServoController::getName() {
 }
 
 void ServoController::print() {
-    Serial.print("%%%_");
-    Serial.print(name.c_str());
-    Serial.print("_POS:");
-    Serial.println(currentAngle);
+    std::string tmp;
+    tmp += "%%%_";
+    tmp += name;
+    tmp += "_POS:";
+    tmp += std::to_string(currentAngle);
+    
+    Serial.println(tmp.c_str());
 }

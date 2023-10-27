@@ -16,7 +16,7 @@
 class ServoController {
 public:
     ServoController() {}
-    void initialize(std::string n, StaticJsonDocument<500> config);
+    void initialize(std::string n, StaticJsonDocument<1024> config);
     void handleGcodeCommand(std::string cmd);
     void changeAngle(int delta);
     void setAngle(int angle);
@@ -26,6 +26,7 @@ private:
   ServoEasing servo;
   // Servo servo;
   std::string name;
+  std::string interpolation;
   int servoPin;
   int speed = 100;
   int currentAngle = 0;

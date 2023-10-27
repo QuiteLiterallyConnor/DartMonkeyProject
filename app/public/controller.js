@@ -206,8 +206,18 @@ $(document).ready(function() {
             $('#motorADisplay').text(line.split(':')[1].trim());
         } else if (line.startsWith('%%%_MOTOR_B_SPEED:')) {
             $('#motorBDisplay').text(line.split(':')[1].trim());
-        } else {
-            // Do something with non specified system messages
+        } else if (line.startsWith('%%%_MOTOR_A_RELAY_STATE:')) {
+            if (line.split(':')[1].trim() === "ON") {
+                setButtonColorForMotorA("green");
+            } else if (line.split(':')[1].trim() === "OFF") {
+                setButtonColorForMotorA("red");
+            }
+        } else if (line.startsWith('%%%_MOTOR_B_RELAY_STATE:')) {
+            if (line.split(':')[1].trim() === "ON") {
+                setButtonColorForMotorB("green");
+            } else if (line.split(':')[1].trim() === "OFF") {
+                setButtonColorForMotorB("red");
+            }
         }
 
     }
@@ -342,7 +352,43 @@ $(document).ready(function() {
     });
 
 
+    $('[data-motor="A"]').click(function() {
+        ws.send('FT');
+    });
+
+    $('[data-motor="B"]').click(function() {
+        ws.send('GT');
+    });
+
+
+
 });
+
+function setButtonColorForMotorA(color) {
+    const btnA = $('[data-motor="A"]');
+    if (color === 'green') {
+        setGreen(btnA);
+    } else if (color === 'red') {
+        setRed(btnA);
+    }
+}
+
+function setButtonColorForMotorB(color) {
+    const btnB = $('[data-motor="B"]');
+    if (color === 'green') {
+        setGreen(btnB);
+    } else if (color === 'red') {
+        setRed(btnB);
+    }
+}
+
+function setGreen(btn) {
+    btn.css('background-color', 'green');
+}
+
+function setRed(btn) {
+    btn.css('background-color', 'red');
+}
 
 let keysPressed = { left: false, up: false, right: false, down: false };
 

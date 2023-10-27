@@ -86,7 +86,7 @@ private:
     std::string convertToHex(const std::string &input);
     int loadConfig();
     const char* getConfigJsonString();
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<1024> doc;
     std::string sessionKey;
     std::vector<std::string> transmittedMessages;
 };
