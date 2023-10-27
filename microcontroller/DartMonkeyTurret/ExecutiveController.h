@@ -19,6 +19,7 @@
 
 #include "ServoController.h"
 #include "ESCController.h"
+#include "RelayController.h"
 
 #define IR_INPUT_PIN              1
 #define ESC_OUTPUT_PIN            22

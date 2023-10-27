@@ -344,7 +344,6 @@ $(document).ready(function() {
 
 });
 
-let keyInterval = {};
 let keysPressed = { left: false, up: false, right: false, down: false };
 
 document.addEventListener("keydown", function(event) {
@@ -364,7 +363,8 @@ document.addEventListener("keydown", function(event) {
             break;
     }
 
-    if (key) {
+    if (key && !keysPressed[key]) {
+        keysPressed[key] = true; // Mark the key as pressed
         document.getElementById(key).classList.add('pressed');
         sendKeyCommand(key);
     }
@@ -386,7 +386,9 @@ document.addEventListener("keyup", function(event) {
             key = "down";
             break;
     }
+
     if (key) {
+        keysPressed[key] = false; // Reset the key state to not pressed
         document.getElementById(key).classList.remove('pressed');
     }
 });
@@ -411,4 +413,3 @@ function sendKeyCommand(key) {
             break;
     }
 }
-

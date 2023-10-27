@@ -335,7 +335,7 @@ func (s *Serial) checkConnection() {
 }
 
 func (s *Serial) sendHeartbeat() {
-	s.Write("H")
+	s.Write("EH")
 	time.Sleep(time.Duration(s.HeartbeatInterval))
 }
 
@@ -363,7 +363,7 @@ func (s *Serial) Read() (string, error) {
 }
 
 func (s *Serial) Write(message string) error {
-	fmt.Printf("SENT TO DEVICE: %v\n", message)
+	// fmt.Printf("SENT TO DEVICE: %v\n", message)
 	_, err := s.Port.Write([]byte(message + "\n"))
 	return err
 }
@@ -551,7 +551,7 @@ func (s *Server) listenToFrontend(conn *websocket.Conn) {
 }
 
 func (s *Server) sendMessageToClientConnection(conn *websocket.Conn, sender, message string) error {
-	fmt.Printf("SENDING MESSAGE FROM %v to FRONTEND: %v\n", sender, message)
+	// gfmt.Printf("SENDING MESSAGE FROM %v to FRONTEND: %v\n", sender, message)
 	return conn.WriteMessage(websocket.TextMessage, senderMessageToJsonBytes(sender, message))
 }
 
@@ -606,16 +606,24 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 			continue
 		}
 		line = strings.TrimSpace(line)
-		fmt.Printf("DEVICE: %v\n", line)
+
+		// Using regular expressions to replace unwanted number of percent signs with desired "%%%_"
+		re := regexp.MustCompile(`%+_`)
+		line = re.ReplaceAllString(line, "%%%_")
+
+		// fmt.Printf("DEVICE: %v\n", line)
 		s.Serial.Buffer = append(s.Serial.Buffer, SenderMessage{"DEVICE", line})
-		if strings.HasPrefix(line, "%%%") {
+		if strings.Contains(line, "%%%") {
 			s.updateStoredSystemState(line)
 			s.sendMessageToAllClientConnections("DEVICE", line)
-
 		}
 
 	}
+}
 
+func trimMessage(input string) string {
+	regex := regexp.MustCompile(`^%+`)
+	return regex.ReplaceAllString(input, "")
 }
 
 func senderMessageToJsonBytes(sender, message string) []byte {

@@ -1,13 +1,15 @@
 #include "ExecutiveController.h"
 
 ExecutiveController executiveController;
+SerialController serialController;
 ESCController motorAController;
 ESCController motorBController;
 ServoController xRotationController;
 ServoController yRotationController;
 ServoController motorAServoController;
 ServoController motorBServoController;
-SerialController serialController;
+RelayController motorARelayController;
+RelayController motorBRelayController;
 
 void print_status() {
   Serial.print("%%%_HEARTBEAT_%%%_X_SERVO_POS:");
@@ -37,10 +39,12 @@ std::map<std::string, SerialController::Command> SerialController::initializeCom
         {"E",  {"Executive Controller",           [&](std::string cmd) { executiveController.HandleGcodeCommand(cmd);           return true;  }}},
         {"X",  {"X axis",                         [&](std::string cmd) { xRotationController.handleGcodeCommand(cmd);            return true;  }}},
         {"Y",  {"Y axis",                         [&](std::string cmd) { yRotationController.handleGcodeCommand(cmd);            return true;  }}},
-        {"A",  {"A servo",                        [&](std::string cmd) { motorAServoController.handleGcodeCommand(cmd);          return false; }}},
-        {"B",  {"B servo",                        [&](std::string cmd) { motorBServoController.handleGcodeCommand(cmd);          return false; }}},
+        {"A",  {"A motor servo",                  [&](std::string cmd) { motorAServoController.handleGcodeCommand(cmd);          return false; }}},
+        {"B",  {"B motor servo",                  [&](std::string cmd) { motorBServoController.handleGcodeCommand(cmd);          return false; }}},
         {"C",  {"A motor",                        [&](std::string cmd) { motorAController.handleGcodeCommand(cmd);               return true;  }}},                                                    
         {"D",  {"B motor",                        [&](std::string cmd) { motorBController.handleGcodeCommand(cmd);               return true;  }}},
+        {"F",  {"A motor relay",                  [&](std::string cmd) { motorARelayController.handleGcodeCommand(cmd);          return true;  }}},
+        {"G",  {"B motor relay",                  [&](std::string cmd) { motorBRelayController.handleGcodeCommand(cmd);          return true;  }}},
     };
 }
 
@@ -105,7 +109,6 @@ void SerialController::processSerialInput() {
 bool SerialController::isValidCommand(const std::string& cmd) {
     if (cmd.empty()) return false;
     char commandType = cmd[0];
-    if (commandType == 'H' || commandType == 'R' || commandType == 'W') return true;
     if (!isalpha(commandType) || commandType < 'A' || commandType > 'Z') {
         Serial.print("%%%_ERR:INVALID_COMMAND:Invalid first character");
         return false;
@@ -152,6 +155,9 @@ void ExecutiveController::storeTransmittedMessage(const char * msg) {
 }
 
 int ExecutiveController::initialize() {
+
+    sessionKey = "NOT_SET";
+
     Serial.println("%%%_INFO: EXECUTIVE CONTROLLER: STARTING SETUP");
     if (loadConfig()) {
       Serial.println("%%%_ERR:INVALID_CONFIG");
@@ -190,6 +196,8 @@ int ExecutiveController::loadConfig() {
     motorBServoController.initialize("MOTOR_B_SERVO", doc["MOTOR_B_SERVO"]);
     motorAController.initialize("MOTOR_A", doc["MOTOR_A"]);
     motorBController.initialize("MOTOR_B", doc["MOTOR_B"]);
+    motorARelayController.initialize("MOTOR_A_RELAY", doc["MOTOR_A_RELAY"]);
+    motorBRelayController.initialize("MOTOR_B_RELAY", doc["MOTOR_B_RELAY"]);
     serialController.initialize(serialController.initializeCommandMap());
 
     return 0;
