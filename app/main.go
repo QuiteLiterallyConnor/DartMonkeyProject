@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -20,6 +21,8 @@ import (
 	"github.com/mssola/user_agent"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/tarm/serial"
+	"golang.ngrok.com/ngrok"
+	"golang.ngrok.com/ngrok/config"
 )
 
 type GStreamerServer struct {
@@ -664,6 +667,7 @@ func (s *Server) ServeHTML() {
 	r := gin.Default()
 	r.ForwardedByClientIP = true
 	r.Static("/public", "./public")
+	r.Static("/hls", "./hls")
 	r.LoadHTMLGlob("./public/*.html")
 	a := NewAdmin()
 
@@ -686,8 +690,34 @@ func (s *Server) ServeHTML() {
 		s.handleWebSocket(c)
 	})
 
-	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
-	r.Run(":" + s.Config.ServerPort)
+	// fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
+	// r.Run(":" + s.Config.ServerPort)
+
+	ctx := context.Background() // Create a context for ngrok
+
+	listener, err := ngrok.Listen(ctx,
+		config.HTTPEndpoint(
+			config.WithDomain("current-ibex-strictly.ngrok-free.app"), // Use your reserved domain
+		),
+		ngrok.WithAuthtokenFromEnv(), // Assumes NGROK_AUTHTOKEN is set in your environment
+	)
+	if err != nil {
+		fmt.Println("ngrok listen error:", err)
+		return
+	}
+
+	// Print the public ngrok URL
+	fmt.Println("ngrok tunnel created:", listener.Addr().String())
+
+	if err != nil {
+		fmt.Println("ngrok listen error:", err)
+		return
+	}
+
+	fmt.Printf("Server %s started at %s\n", s.Config.Name, listener.Addr().String())
+	if err := http.Serve(listener, r); err != nil {
+		fmt.Println("Server error:", err)
+	}
 }
 
 func main() {
@@ -699,8 +729,13 @@ func main() {
 
 	for _, config := range configs {
 		server := NewServer(config)
-		go server.ServeHTML() // Start each server in its goroutine
-		server.Camera.Start()
+		go server.ServeHTML() // Pass the context to ServeHTML
+		// go server.Camera.Start()
+
+		// g := GStreamerServer{}
+		// g.init()
+		// go g.StartWebcamStream()
+
 	}
 
 	select {} // prevent main from exiting

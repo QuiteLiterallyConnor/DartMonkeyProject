@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Live Stream</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <video id="video" controls autoplay muted playsinline></video>
+    <button id="liveButton">Live</button>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        $(document).ready(function() {
+            var video = $('#video')[0];
+            var videoSrc = '/hls/playlist.m3u8';
+            if (Hls.isSupported()) {
+                var hls = new Hls({
+                    liveSyncDurationCount: 1,
+                    maxMaxBufferLength: 30,
+                });
+                hls.loadSource(videoSrc);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                    video.play();
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = videoSrc;
+                video.addEventListener('loadedmetadata', function () {
+                    video.play();
+                });
+            }
+
+            // Disable video controls and enable autoplay
+            video.controls = false;
+            video.autoplay = true;
+            video.loop = true; // Optional: for continuous play if the stream temporarily ends
+
+            // Add event listener for the live button to refresh the stream
+            $('#liveButton').on('click', function() {
+                if (hls) {
+                    hls.startLoad();
+                    video.play();
+                } else {
+                    video.load(); // for native support
+                }
+            });
+        });
+    </script>
+</body>
+</html>

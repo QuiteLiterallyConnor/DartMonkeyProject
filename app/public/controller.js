@@ -1,10 +1,28 @@
 const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/controller/ws";
 const ws = new WebSocket(wsURL);
-const livestreamLocation = window.location.protocol + '//' + window.location.hostname + ':6001/stream';
+// const livestreamLocation = window.location.protocol + '//' + window.location.hostname + ':6001/stream';
+const livestreamLocation = "https://c545-146-70-187-14.ngrok-free.app/video"
+
+// document.addEventListener('DOMContentLoaded', function () {
+//     var video = document.getElementById('video');
+//     var videoSrc = '/hls/playlist.m3u8';
+//     if (Hls.isSupported()) {
+//         var hls = new Hls();
+//         hls.loadSource(videoSrc);
+//         hls.attachMedia(video);
+//         hls.on(Hls.Events.MANIFEST_PARSED, function () {
+//             video.play();
+//         });
+//     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+//         video.src = videoSrc;
+//         video.addEventListener('loadedmetadata', function () {
+//             video.play();
+//         });
+//     }
+// });
 
 $(document).ready(function() {
     let intervalID;
-
     getServerData();
 
     ws.onopen = function() {
@@ -166,27 +184,6 @@ $(document).ready(function() {
     }
     
 
-    // UNCOMMENT FOR GO HLS
-
-    // const video = document.getElementById('video');
-    // const liveButton = document.getElementById('liveButton');
-    
-    // const hls = new Hls({
-    //     liveBackBufferLength: 3, // Keep only 3 seconds of content for back buffer
-    //     maxBufferLength: 5,     // Maximum buffer length of 5 seconds
-    //     maxBufferSize: 500000,  // Maximum buffer size in bytes
-    //     liveSyncDurationCount: 1 // Try to stay close to live
-    // });
-
-    
-    // hls.loadSource('/hls/playlist.m3u8');
-    // hls.attachMedia(video);
-    
-    // liveButton.addEventListener('click', function() {
-    //     if (video.duration) {
-    //         video.currentTime = video.duration; // Move to the most recent moment
-    //     }
-    // });
 
     function processSystemMessage(line) {
         lastHeartbeatTime = Date.now();

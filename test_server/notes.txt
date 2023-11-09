@@ -1,0 +1,2 @@
+go get golang.ngrok.com/ngrok
+go get golang.ngrok.com/ngrok/config
