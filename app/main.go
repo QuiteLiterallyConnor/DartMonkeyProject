@@ -24,6 +24,8 @@ import (
 	"github.com/tarm/serial"
 	"github.com/vladimirvivien/go4vl/device"
 	"github.com/vladimirvivien/go4vl/v4l2"
+	"golang.ngrok.com/ngrok"
+	"golang.ngrok.com/ngrok/config"
 )
 
 type Webcam struct {
@@ -637,32 +639,31 @@ func (s *Server) ServeHTML() {
 	r.GET("/stream", s.Camera.Stream)
 
 	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
-	r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
+	// r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
 
-	// ctx := context.Background() // Create a context for ngrok
-	// listener, err := ngrok.Listen(ctx,
-	// 	config.HTTPEndpoint(
-	// 		config.WithDomain("current-ibex-strictly.ngrok-free.app"), // Use your reserved domain
-	// 	),
-	// 	ngrok.WithAuthtokenFromEnv(), // Assumes NGROK_AUTHTOKEN is set in your environment
-	// )
-	// if err != nil {
-	// 	fmt.Println("ngrok listen error:", err)
-	// 	return
-	// }
+	ctx := context.Background()
+	listener, err := ngrok.Listen(ctx,
+		config.HTTPEndpoint(
+			config.WithDomain("current-ibex-strictly.ngrok-free.app"),
+		),
+		ngrok.WithAuthtokenFromEnv(),
+	)
+	if err != nil {
+		fmt.Println("ngrok listen error:", err)
+		return
+	}
 
-	// // Print the public ngrok URL
-	// fmt.Println("ngrok tunnel created:", listener.Addr().String())
+	fmt.Println("ngrok tunnel created:", listener.Addr().String())
 
-	// if err != nil {
-	// 	fmt.Println("ngrok listen error:", err)
-	// 	return
-	// }
+	if err != nil {
+		fmt.Println("ngrok listen error:", err)
+		return
+	}
 
-	// fmt.Printf("Server %s started at %s\n", s.Config.Name, listener.Addr().String())
-	// if err := http.Serve(listener, r); err != nil {
-	// 	fmt.Println("Server error:", err)
-	// }
+	fmt.Printf("Server %s started at %s\n", s.Config.Name, listener.Addr().String())
+	if err := http.Serve(listener, r); err != nil {
+		fmt.Println("Server error:", err)
+	}
 }
 
 func main() {
