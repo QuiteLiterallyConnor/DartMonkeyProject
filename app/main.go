@@ -86,7 +86,7 @@ type Config struct {
 }
 
 func readConfig() ([]Config, error) {
-	file, err := os.Open("config_windows.json")
+	file, err := os.Open("config_linux.json")
 	if err != nil {
 		return nil, err
 	}

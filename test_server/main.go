@@ -2,54 +2,29 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"mime/multipart"
+	"net/http"
 	"net/textproto"
 
-	"github.com/gin-gonic/gin"
 	"github.com/vladimirvivien/go4vl/device"
 	"github.com/vladimirvivien/go4vl/v4l2"
 )
 
-// Webcam class
-type Webcam struct {
-	camera *device.Device
+var (
 	frames <-chan []byte
-}
+)
 
-func NewWebcam(deviceName string) (*Webcam, error) {
-	camera, err := device.Open(
-		deviceName,
-		device.WithPixFormat(v4l2.PixFormat{PixelFormat: v4l2.PixelFmtMJPEG, Width: 640, Height: 480}),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := camera.Start(context.TODO()); err != nil {
-		camera.Close()
-		return nil, err
-	}
-
-	return &Webcam{
-		camera: camera,
-		frames: camera.GetOutput(),
-	}, nil
-}
-
-func (webcam *Webcam) Close() {
-	webcam.camera.Close()
-}
-
-func (webcam *Webcam) Stream(c *gin.Context) {
-	w := c.Writer
+func imageServ(w http.ResponseWriter, req *http.Request) {
 	mimeWriter := multipart.NewWriter(w)
 	w.Header().Set("Content-Type", fmt.Sprintf("multipart/x-mixed-replace; boundary=%s", mimeWriter.Boundary()))
 	partHeader := make(textproto.MIMEHeader)
 	partHeader.Add("Content-Type", "image/jpeg")
 
-	for frame := range webcam.frames {
+	var frame []byte
+	for frame = range frames {
 		partWriter, err := mimeWriter.CreatePart(partHeader)
 		if err != nil {
 			log.Printf("failed to create multi-part writer: %s", err)
@@ -64,17 +39,26 @@ func (webcam *Webcam) Stream(c *gin.Context) {
 
 func main() {
 	port := ":9090"
-	devName := "/dev/video1"
+	devName := "/dev/video2"
+	flag.StringVar(&devName, "d", devName, "device name (path)")
+	flag.StringVar(&port, "p", port, "webcam service port")
 
-	webcam, err := NewWebcam(devName)
+	camera, err := device.Open(
+		devName,
+		device.WithPixFormat(v4l2.PixFormat{PixelFormat: v4l2.PixelFmtMJPEG, Width: 640, Height: 480}),
+	)
 	if err != nil {
-		log.Fatalf("failed to initialize webcam: %s", err)
+		log.Fatalf("failed to open device: %s", err)
 	}
-	defer webcam.Close()
+	defer camera.Close()
 
-	router := gin.Default()
-	router.GET("/stream", webcam.Stream)
+	if err := camera.Start(context.TODO()); err != nil {
+		log.Fatalf("camera start: %s", err)
+	}
 
-	log.Printf("Serving images on %s/stream", port)
-	log.Fatal(router.Run(port))
+	frames = camera.GetOutput()
+
+	log.Printf("Serving images: [%s/stream]", port)
+	http.HandleFunc("/stream", imageServ)
+	log.Fatal(http.ListenAndServe(port, nil))
 }
