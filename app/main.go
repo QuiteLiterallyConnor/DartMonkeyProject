@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -21,73 +20,7 @@ import (
 	"github.com/mssola/user_agent"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/tarm/serial"
-	"golang.ngrok.com/ngrok"
-	"golang.ngrok.com/ngrok/config"
 )
-
-type GStreamerServer struct {
-	compressionLevel int
-	maxFiles         int
-	bufferDuration   int
-	segmentDuration  int
-	gstPath          string
-}
-
-func (g *GStreamerServer) init() {
-	g.compressionLevel = 50
-	g.segmentDuration = 1
-	g.bufferDuration = 60
-	g.maxFiles = int(g.bufferDuration / g.segmentDuration)
-	g.gstPath = "E:\\gstreamer\\1.0\\msvc_x86_64\\bin\\gst-launch-1.0.exe"
-}
-
-func (g *GStreamerServer) StartWebcamStream() {
-	go g.CallStreamerExecutable()
-	go g.CleanUpHLSFiles()
-}
-
-func (g *GStreamerServer) CallStreamerExecutable() {
-	quantizerValue := 20 + (g.compressionLevel * 30 / 100)
-
-	cmd := exec.Command(
-		g.gstPath,
-		"mfvideosrc",
-		"!",
-		"videoconvert",
-		"!",
-		"tee", "name=t",
-		"t.",
-		"!",
-		"queue",
-		"!",
-		"videoconvert",
-		"!",
-		"x264enc", "bitrate=500", "quantizer="+strconv.Itoa(quantizerValue), "speed-preset=ultrafast", "tune=zerolatency",
-		"!",
-		"mpegtsmux",
-		"!",
-		"hlssink", "location=./hls/segment%05d.ts", "playlist-location=./hls/playlist.m3u8", "max-files="+strconv.Itoa(g.maxFiles), "target-duration="+strconv.Itoa(g.segmentDuration),
-	)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func (g *GStreamerServer) CleanUpHLSFiles() {
-	for {
-		time.Sleep(time.Second * time.Duration(g.bufferDuration))
-		files, _ := os.ReadDir("./hls")
-		if len(files) > g.maxFiles {
-			for i := 0; i < len(files)-g.maxFiles; i++ {
-				os.Remove("./hls/" + files[i].Name())
-			}
-		}
-	}
-}
 
 type Config struct {
 	Name       string `json:"name"`
@@ -690,34 +623,33 @@ func (s *Server) ServeHTML() {
 		s.handleWebSocket(c)
 	})
 
-	// fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
-	// r.Run(":" + s.Config.ServerPort)
+	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
+	r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
 
-	ctx := context.Background() // Create a context for ngrok
+	// ctx := context.Background() // Create a context for ngrok
+	// listener, err := ngrok.Listen(ctx,
+	// 	config.HTTPEndpoint(
+	// 		config.WithDomain("current-ibex-strictly.ngrok-free.app"), // Use your reserved domain
+	// 	),
+	// 	ngrok.WithAuthtokenFromEnv(), // Assumes NGROK_AUTHTOKEN is set in your environment
+	// )
+	// if err != nil {
+	// 	fmt.Println("ngrok listen error:", err)
+	// 	return
+	// }
 
-	listener, err := ngrok.Listen(ctx,
-		config.HTTPEndpoint(
-			config.WithDomain("current-ibex-strictly.ngrok-free.app"), // Use your reserved domain
-		),
-		ngrok.WithAuthtokenFromEnv(), // Assumes NGROK_AUTHTOKEN is set in your environment
-	)
-	if err != nil {
-		fmt.Println("ngrok listen error:", err)
-		return
-	}
+	// // Print the public ngrok URL
+	// fmt.Println("ngrok tunnel created:", listener.Addr().String())
 
-	// Print the public ngrok URL
-	fmt.Println("ngrok tunnel created:", listener.Addr().String())
+	// if err != nil {
+	// 	fmt.Println("ngrok listen error:", err)
+	// 	return
+	// }
 
-	if err != nil {
-		fmt.Println("ngrok listen error:", err)
-		return
-	}
-
-	fmt.Printf("Server %s started at %s\n", s.Config.Name, listener.Addr().String())
-	if err := http.Serve(listener, r); err != nil {
-		fmt.Println("Server error:", err)
-	}
+	// fmt.Printf("Server %s started at %s\n", s.Config.Name, listener.Addr().String())
+	// if err := http.Serve(listener, r); err != nil {
+	// 	fmt.Println("Server error:", err)
+	// }
 }
 
 func main() {

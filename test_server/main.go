@@ -1,103 +1,80 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
-	"os"
-	"os/exec"
-	"strconv"
-	"time"
+	"mime/multipart"
+	"net/textproto"
 
 	"github.com/gin-gonic/gin"
+	"github.com/vladimirvivien/go4vl/device"
+	"github.com/vladimirvivien/go4vl/v4l2"
 )
 
-type GStreamerServer struct {
-	compressionLevel int
-	maxFiles         int
-	bufferDuration   int
-	segmentDuration  int
-	gstPath          string
+// Webcam class
+type Webcam struct {
+	camera *device.Device
+	frames <-chan []byte
 }
 
-func (g *GStreamerServer) init() {
-	g.compressionLevel = 50
-	g.segmentDuration = 1
-	g.bufferDuration = 60
-	g.maxFiles = int(g.bufferDuration / g.segmentDuration)
-	g.gstPath = "E:\\gstreamer\\1.0\\msvc_x86_64\\bin\\gst-launch-1.0.exe"
-}
-
-func (g *GStreamerServer) StartWebcamStream() {
-	go g.CallStreamerExecutable()
-	go g.CleanUpHLSFiles()
-}
-
-func (g *GStreamerServer) CallStreamerExecutable() {
-	quantizerValue := 20 + (g.compressionLevel * 30 / 100)
-
-	cmd := exec.Command(
-		g.gstPath,
-		"mfvideosrc",
-		"!",
-		"videoconvert",
-		"!",
-		"tee", "name=t",
-		"t.",
-		"!",
-		"queue",
-		"!",
-		"videoconvert",
-		"!",
-		"x264enc", "bitrate=500", "quantizer="+strconv.Itoa(quantizerValue), "speed-preset=ultrafast", "tune=zerolatency",
-		"!",
-		"mpegtsmux",
-		"!",
-		"hlssink", "location=./hls/segment%05d.ts", "playlist-location=./hls/playlist.m3u8", "max-files="+strconv.Itoa(g.maxFiles), "target-duration="+strconv.Itoa(g.segmentDuration),
+func NewWebcam(deviceName string) (*Webcam, error) {
+	camera, err := device.Open(
+		deviceName,
+		device.WithPixFormat(v4l2.PixFormat{PixelFormat: v4l2.PixelFmtMJPEG, Width: 640, Height: 480}),
 	)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+	if err != nil {
+		return nil, err
 	}
+
+	if err := camera.Start(context.TODO()); err != nil {
+		camera.Close()
+		return nil, err
+	}
+
+	return &Webcam{
+		camera: camera,
+		frames: camera.GetOutput(),
+	}, nil
 }
 
-func (g *GStreamerServer) CleanUpHLSFiles() {
-	for {
-		time.Sleep(time.Second * time.Duration(g.bufferDuration))
-		files, _ := os.ReadDir("./hls")
-		if len(files) > g.maxFiles {
-			for i := 0; i < len(files)-g.maxFiles; i++ {
-				os.Remove("./hls/" + files[i].Name())
-			}
+func (webcam *Webcam) Close() {
+	webcam.camera.Close()
+}
+
+func (webcam *Webcam) Stream(c *gin.Context) {
+	w := c.Writer
+	mimeWriter := multipart.NewWriter(w)
+	w.Header().Set("Content-Type", fmt.Sprintf("multipart/x-mixed-replace; boundary=%s", mimeWriter.Boundary()))
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Add("Content-Type", "image/jpeg")
+
+	for frame := range webcam.frames {
+		partWriter, err := mimeWriter.CreatePart(partHeader)
+		if err != nil {
+			log.Printf("failed to create multi-part writer: %s", err)
+			return
+		}
+
+		if _, err := partWriter.Write(frame); err != nil {
+			log.Printf("failed to write image: %s", err)
 		}
 	}
 }
 
 func main() {
-	g := GStreamerServer{}
-	g.init()
-	go g.StartWebcamStream()
+	port := ":9090"
+	devName := "/dev/video1"
 
-	// Initialize the Gin router
+	webcam, err := NewWebcam(devName)
+	if err != nil {
+		log.Fatalf("failed to initialize webcam: %s", err)
+	}
+	defer webcam.Close()
+
 	router := gin.Default()
+	router.GET("/stream", webcam.Stream)
 
-	// Serve static assets like HTML, JS, and CSS files from the 'public' directory
-	router.Static("/public", "./public")
-
-	// Serve HLS content (m3u8 and ts files) from the 'hls' directory
-	router.Static("/hls", "./hls")
-
-	// Serve the main page
-	router.GET("/", func(c *gin.Context) {
-		c.File("index.html")
-	})
-
-	// Define the server port
-	serverPort := "8080"
-
-	// Start the server
-	fmt.Printf("Server started at http://localhost:%s\n", serverPort)
-	router.Run(":" + serverPort)
+	log.Printf("Serving images on %s/stream", port)
+	log.Fatal(router.Run(port))
 }
