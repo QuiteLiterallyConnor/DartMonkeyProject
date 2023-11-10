@@ -2,13 +2,15 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"mime/multipart"
 	"net"
 	"net/http"
+	"net/textproto"
 	"os"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,11 +22,63 @@ import (
 	"github.com/mssola/user_agent"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/tarm/serial"
+	"github.com/vladimirvivien/go4vl/device"
+	"github.com/vladimirvivien/go4vl/v4l2"
 )
+
+type Webcam struct {
+	camera *device.Device
+	frames <-chan []byte
+}
+
+func NewWebcam(deviceName string) (*Webcam, error) {
+	camera, err := device.Open(
+		deviceName,
+		device.WithPixFormat(v4l2.PixFormat{PixelFormat: v4l2.PixelFmtMJPEG, Width: 640, Height: 480}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := camera.Start(context.TODO()); err != nil {
+		camera.Close()
+		return nil, err
+	}
+
+	return &Webcam{
+		camera: camera,
+		frames: camera.GetOutput(),
+	}, nil
+}
+
+func (webcam *Webcam) Close() {
+	webcam.camera.Close()
+}
+
+func (webcam *Webcam) Stream(c *gin.Context) {
+	w := c.Writer
+	mimeWriter := multipart.NewWriter(w)
+	w.Header().Set("Content-Type", fmt.Sprintf("multipart/x-mixed-replace; boundary=%s", mimeWriter.Boundary()))
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Add("Content-Type", "image/jpeg")
+
+	for frame := range webcam.frames {
+		partWriter, err := mimeWriter.CreatePart(partHeader)
+		if err != nil {
+			log.Printf("failed to create multi-part writer: %s", err)
+			return
+		}
+
+		if _, err := partWriter.Write(frame); err != nil {
+			log.Printf("failed to write image: %s", err)
+		}
+	}
+}
 
 type Config struct {
 	Name       string `json:"name"`
 	ComPort    string `json:"com_port"`
+	WebcamPort string `json:"webcam_port"`
 	CameraPort string `json:"camera_port"`
 	ServerPort string `json:"server_port"`
 }
@@ -308,50 +362,6 @@ func (s *Serial) InitiateConnectionChecking() {
 	go s.checkConnection()
 }
 
-type CameraServer struct {
-	Port string
-	Cmd  *exec.Cmd
-}
-
-func NewCameraServer(comPort string) *CameraServer {
-	c := &CameraServer{
-		Port: comPort,
-	}
-	return c
-}
-
-func (c *CameraServer) Start() error {
-	if c.Cmd != nil && c.Cmd.Process != nil {
-		return fmt.Errorf("server already running")
-	}
-	c.Cmd = exec.Command("python", "camera_server.py", c.Port)
-	c.Cmd.Stdout = os.Stdout
-	c.Cmd.Stderr = os.Stderr
-	return c.Cmd.Start()
-}
-
-func (c *CameraServer) Stop() error {
-	if c.Cmd != nil && c.Cmd.Process != nil {
-		err := c.Cmd.Process.Kill()
-		if err != nil {
-			return err
-		}
-		c.Cmd.Wait()
-		c.Cmd = nil
-		return nil
-	}
-	return fmt.Errorf("server not running")
-}
-
-func (c *CameraServer) Restart() error {
-	err := c.Stop()
-	if err != nil {
-		return fmt.Errorf("error stopping server: %v", err)
-	}
-	time.Sleep(1 * time.Second)
-	return c.Start()
-}
-
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -361,7 +371,7 @@ var upgrader = websocket.Upgrader{
 type Server struct {
 	IPv4          string  `json:"ipv4"`
 	Serial        *Serial `json:"serial"`
-	Camera        *CameraServer
+	Camera        *Webcam
 	Config        Config `json:"config"`
 	Connections   map[*websocket.Conn]struct{}
 	Mu            sync.Mutex
@@ -370,7 +380,10 @@ type Server struct {
 
 func NewServer(config Config) *Server {
 	serial := NewSerial(config.ComPort)
-	camera := NewCameraServer(config.CameraPort)
+	camera, err := NewWebcam(config.WebcamPort)
+	if err != nil {
+		fmt.Printf("Failed to init webcam with device %v\n", config.WebcamPort)
+	}
 	return &Server{
 		IPv4:          getLocalIP(),
 		Serial:        serial,
@@ -579,7 +592,6 @@ type SystemInfo struct {
 	DoHeartbeat       bool            `json:"do_heartbeat"`
 	HeartbeatInterval time.Duration   `json:"heartbeat_interval"`
 	SerialBuffer      []SenderMessage `json:"serial_buffer"`
-	CameraServerPort  string          `json:"camera_server_port"`
 	Config            Config          `json:"config"`
 }
 
@@ -591,7 +603,6 @@ func (s *Server) SystemInfo() SystemInfo {
 		IsConnected:       s.Serial.IsConnected,
 		HeartbeatInterval: s.Serial.HeartbeatInterval/time.Second - 1,
 		SerialBuffer:      s.Serial.Buffer,
-		CameraServerPort:  s.Camera.Port,
 		Config:            s.Config,
 	}
 }
@@ -622,6 +633,8 @@ func (s *Server) ServeHTML() {
 	r.GET("/controller/ws", func(c *gin.Context) {
 		s.handleWebSocket(c)
 	})
+
+	r.GET("/stream", s.Camera.Stream)
 
 	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
 	r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
@@ -662,11 +675,7 @@ func main() {
 	for _, config := range configs {
 		server := NewServer(config)
 		go server.ServeHTML() // Pass the context to ServeHTML
-		// go server.Camera.Start()
-
-		// g := GStreamerServer{}
-		// g.init()
-		// go g.StartWebcamStream()
+		defer server.Camera.Close()
 
 	}
 
