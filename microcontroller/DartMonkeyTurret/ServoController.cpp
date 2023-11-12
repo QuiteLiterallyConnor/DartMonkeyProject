@@ -46,7 +46,7 @@ void ServoController::setAngle(int angle) {
   if (angle >= 0 && angle <= angle_limit) {
     currentAngle = angle;
     print();
-    servo.easeTo(angle, speed);
+    servo.startEaseTo(angle, speed);
     // servo.write(angle);
   }
 }

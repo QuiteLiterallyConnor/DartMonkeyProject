@@ -11,6 +11,7 @@ void ESCController::initialize(std::string n, StaticJsonDocument<1024> config) {
     tmp += ": Ready to transmit ESC PWM signals at pin ";
     tmp += std::to_string(controllerPin);
     Serial.println(tmp.c_str());
+    controller.setEaseTo(EASE_LINEAR);
 }
 
 void ESCController::sync() {
@@ -50,7 +51,7 @@ void ESCController::setSpeed(int speed) {
     if (speed >= 0 && speed <= 100) {
       currentSpeed = speed;
       print();
-      (speed > 0) ? controller.easeTo(speedToPulseWidth(speed), 10) : controller.easeTo(IDLE_PWM, 10);
+      (speed > 0) ? controller.startEaseTo(speedToPulseWidth(speed), 10) : controller.startEaseTo(IDLE_PWM, 10);
       // (speed > 0) ? controller.writeMicroseconds(speedToPulseWidth(speed)) : controller.writeMicroseconds(IDLE_PWM);
     } else {
       print();

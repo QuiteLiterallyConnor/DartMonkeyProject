@@ -15,7 +15,6 @@ public:
     void toggle();
     bool state();
     std::string getName();
-
 private:
     std::string name;
     int relayPin;

@@ -21,24 +21,22 @@ void RelayController::handleGcodeCommand(std::string cmd) {
   } else if (actionType == 'F') {
     setOff();
   }
+  printState();
 }
 
 void RelayController::setOn() {
   digitalWrite(relayPin, HIGH);
   currentState = true;
-  printState();
 }
 
 void RelayController::setOff() {
   digitalWrite(relayPin, LOW);
   currentState = false;
-  printState();
 }
 
 void RelayController::toggle() {
   currentState = !currentState;
   digitalWrite(relayPin, currentState ? HIGH : LOW);
-  printState();
 }
 
 bool RelayController::state() {

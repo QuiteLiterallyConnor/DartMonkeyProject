@@ -94,31 +94,35 @@ void SerialController::processSerialInput() {
         char incomingChar = Serial.read();
         inputBuffer += incomingChar;
 
-        if (incomingChar == '\n' || incomingChar == '\r') {
-            inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\n'), inputBuffer.end());
-            inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\r'), inputBuffer.end());
-            blinkLED();
-            Serial.flush();
+        if (incomingChar != '\n' && incomingChar != '\r') {
+            continue;
+        }
 
-            char *token = strtok(&inputBuffer[0], ";");
-            while(token != NULL) {
-                std::string command = token;
-                command.erase(std::remove_if(command.begin(), command.end(), ::isspace), command.end());
-                if (isValidCommand(command)) {
-                    handleCommand(command);
-                } else {
-                    std::string error_msg = "%%%_ERR:INVALID_CMD:" + command;
-                    Serial.println(error_msg.c_str());
-                }
+        inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\n'), inputBuffer.end());
+        inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\r'), inputBuffer.end());
+        blinkLED();
+        Serial.flush();
 
-                token = strtok(NULL, ";");
+        char *token = strtok(&inputBuffer[0], ";");
+        while (token != NULL) {
+            std::string command = token;
+            command.erase(std::remove_if(command.begin(), command.end(), ::isspace), command.end());
+
+            if (!isValidCommand(command)) {
+                std::string error_msg = "%%%_ERR:INVALID_CMD:" + command;
+                Serial.println(error_msg.c_str());
+            } else {
+                Serial.printf("Processing command: ");
+                Serial.println(command.c_str());
+                handleCommand(command);
             }
 
-            inputBuffer = "";
+            token = strtok(NULL, ";");
         }
+
+        inputBuffer = "";
     }
 }
-
 
 bool SerialController::isValidCommand(const std::string& cmd) {
     if (cmd.empty()) return false;
@@ -244,10 +248,10 @@ const char* ExecutiveController::getConfigJsonString() {
     {
       "X_SERVO": { "pin": 2, "speed": 30, "starting_angle": 60, "angle_limit": 120, "interpolation": "ease" },
       "Y_SERVO": { "pin": 4, "speed": 50, "starting_angle": 45, "angle_limit": 100, "interpolation": "ease" },
-      "MOTOR_A_SERVO": { "pin": 6, "speed": 50, "starting_angle": 0, "angle_limit": 20, "interpolation": "linear" },
-      "MOTOR_B_SERVO": { "pin": 8, "speed": 50, "starting_angle": 20, "angle_limit": 20, "interpolation": "linear" },
-      "MOTOR_A": { "pin": 10 },
-      "MOTOR_B": { "pin": 15 },
+      "MOTOR_A_SERVO": { "pin": 6, "speed": 50, "starting_angle": 0, "angle_limit": 25, "interpolation": "linear" },
+      "MOTOR_B_SERVO": { "pin": 8, "speed": 50, "starting_angle": 20, "angle_limit": 25, "interpolation": "linear" },
+      "MOTOR_A": { "pin": 10, "reversed": "true" },
+      "MOTOR_B": { "pin": 15, "reversed": "false" },
       "MOTOR_A_RELAY": { "pin": 17 },
       "MOTOR_B_RELAY": { "pin": 19 }
     }
