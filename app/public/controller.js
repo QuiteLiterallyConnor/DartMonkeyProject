@@ -390,7 +390,7 @@ function setRed(btn) {
 let keysPressed = { left: false, up: false, right: false, down: false };
 
 document.addEventListener("keydown", function(event) {
-    console.log("A key was pressed")
+    console.log(event.key + " key was pressed")
     let key;
     switch (event.key) {
         case "A":  // WASD - Left
