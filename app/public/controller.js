@@ -393,19 +393,19 @@ document.addEventListener("keydown", function(event) {
     console.log(event.key + " key was pressed")
     let key;
     switch (event.key) {
-        case "A":  // WASD - Left
+        case "a":  // WASD - Left
             console.log("A pressed")
             key = "left";
             break;
-        case "W":  // WASD - Up
+        case "w":  // WASD - Up
             console.log("W pressed")
             key = "up";
             break;
-        case "D":  // WASD - Right
+        case "d":  // WASD - Right
             console.log("D pressed")
             key = "right";
             break;
-        case "S":  // WASD - Down
+        case "s":  // WASD - Down
             console.log("S pressed")
             key = "down";
             break;
@@ -421,16 +421,16 @@ document.addEventListener("keydown", function(event) {
 document.addEventListener("keyup", function(event) {
     let key;
     switch (event.key) {
-        case "A":  // WASD - Left
+        case "a":  // WASD - Left
             key = "left";
             break;
-        case "W":  // WASD - Up
+        case "w":  // WASD - Up
             key = "up";
             break;
-        case "D":  // WASD - Right
+        case "d":  // WASD - Right
             key = "right";
             break;
-        case "S":  // WASD - Down
+        case "s":  // WASD - Down
             key = "down";
             break;
     }
