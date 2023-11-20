@@ -651,12 +651,14 @@ func (s *Server) ServeHTML() {
 	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
 	// r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
 
+	token := os.Getenv("NGROK_AUTHTOKEN")
+
 	ctx := context.Background()
 	listener, err := ngrok.Listen(ctx,
 		config.HTTPEndpoint(
 			config.WithDomain("current-ibex-strictly.ngrok-free.app"),
 		),
-		ngrok.WithAuthtokenFromEnv(),
+		ngrok.WithAuthtoken(token),
 	)
 	if err != nil {
 		fmt.Println("ngrok listen error:", err)
