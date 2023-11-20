@@ -1,7 +1,7 @@
 const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/controller/ws";
 const ws = new WebSocket(wsURL);
 // const livestreamLocation = window.location.protocol + '//' + window.location.hostname + ':6001/stream';
-const livestreamLocation = "/stream";
+const livestreamLocation = "/stream/";
 
 // document.addEventListener('DOMContentLoaded', function () {
 //     var video = document.getElementById('video');
@@ -34,7 +34,8 @@ $(document).ready(function() {
         clearInterval(intervalID);
     };
 
-    $("#livestream").attr("src", livestreamLocation);
+    $("#livestreamMainCamera").attr("src", livestreamLocation + "1");
+    $("#livestreamSecondaryCamera").attr("src", livestreamLocation + "2");
 
 
     let lastHeartbeatTime = Date.now();
@@ -360,6 +361,8 @@ $(document).ready(function() {
 
 
 });
+
+const FIRE_gcode = "FO;GO;D1500;AS0;BS20;CS100;DS100;D5000;AS20;BS0;D1000;CS0;DS0;AS0;BS20;FF;GF"
 
 function setButtonColorForMotorA(color) {
     const btnA = $('[data-motor="A"]');

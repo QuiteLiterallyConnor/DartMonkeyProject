@@ -94,3 +94,19 @@ body {
 .terminal-bg {
     background-color: rgb(24, 24, 24);
 }
+
+.livestream-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+}
+
+.livestream {
+    flex: 1;
+    max-width: 50%; /* Ensures each stream takes up only half the width */
+    height: auto; /* Maintains the aspect ratio */
+    object-fit: cover; /* Optional: if you want to cover the entire panel area */
+}
+

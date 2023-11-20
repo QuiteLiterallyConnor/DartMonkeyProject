@@ -78,11 +78,12 @@ func (webcam *Webcam) Stream(c *gin.Context) {
 }
 
 type Config struct {
-	Name       string `json:"name"`
-	ComPort    string `json:"com_port"`
-	WebcamPort string `json:"webcam_port"`
-	CameraPort string `json:"camera_port"`
-	ServerPort string `json:"server_port"`
+	Name        string `json:"name"`
+	ComPort     string `json:"com_port"`
+	WebcamPort  string `json:"webcam_port"`
+	Webcam2Port string `json:"webcam2_port"`
+	CameraPort  string `json:"camera_port"`
+	ServerPort  string `json:"server_port"`
 }
 
 func readConfig() ([]Config, error) {
@@ -374,6 +375,7 @@ type Server struct {
 	IPv4          string  `json:"ipv4"`
 	Serial        *Serial `json:"serial"`
 	Camera        *Webcam
+	Camera2       *Webcam
 	Config        Config `json:"config"`
 	Connections   map[*websocket.Conn]struct{}
 	Mu            sync.Mutex
@@ -386,10 +388,17 @@ func NewServer(config Config) *Server {
 	if err != nil {
 		fmt.Printf("Failed to init webcam with device %v\n", config.WebcamPort)
 	}
+
+	camera2, err := NewWebcam(config.Webcam2Port)
+	if err != nil {
+		fmt.Printf("Failed to init webcam with device %v\n", config.WebcamPort)
+	}
+
 	return &Server{
 		IPv4:          getLocalIP(),
 		Serial:        serial,
 		Camera:        camera,
+		Camera2:       camera2,
 		Config:        config,
 		Connections:   make(map[*websocket.Conn]struct{}),
 		System_States: make(map[string]int),
@@ -636,7 +645,8 @@ func (s *Server) ServeHTML() {
 		s.handleWebSocket(c)
 	})
 
-	r.GET("/stream", s.Camera.Stream)
+	r.GET("/stream/1", s.Camera.Stream)
+	r.GET("/stream/2", s.Camera2.Stream)
 
 	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
 	// r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
