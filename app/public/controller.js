@@ -346,7 +346,7 @@ $(document).ready(function() {
 
 
     $('#pingButton').click(function() {
-        ws.send('H');
+        ws.send('EH');
     });
 
 

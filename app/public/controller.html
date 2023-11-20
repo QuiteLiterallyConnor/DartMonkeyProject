@@ -57,13 +57,6 @@
             <div class="d-flex justify-content-center mt-3">
                 <button id="pingButton" class="btn btn-warning">Ping</button>
             </div>
-            <h4 class="text-center">Send Command to Serial Controller</h4>
-            <div class="input-group mb-3">
-                <input type="text" id="command" class="form-control bg-dark text-light" placeholder="Enter command">
-                <div class="input-group-append">
-                    <button id="sendButton" class="btn btn-primary">Send</button>
-                </div>
-            </div>
 
             <h4 class="text-center">Upload GCode File</h4>
             <input type="file" id="gcodeFile" accept=".gcode" class="mb-2 bg-dark text-light">
@@ -75,6 +68,12 @@
         <div class="col-md-4 bg-dark">
             <h2>Serial Controller</h2>
             <div id="messages" class="border bg-dark terminal-bg mb-3" style="height: 450px; overflow: auto;"></div>
+            <div class="input-group mb-3">
+                <input type="text" id="command" class="form-control bg-dark text-light" placeholder="Enter command">
+                <div class="input-group-append">
+                    <button id="sendButton" class="btn btn-primary">Send</button>
+                </div>
+            </div>
             <div class="input-group mb-3">
                 <div class="input-group-prepend">
                     <button class="btn btn-outline-secondary" id="decreaseFont">-</button>
