@@ -656,7 +656,7 @@ func (s *Server) ServeHTML() {
 	ctx := context.Background()
 	listener, err := ngrok.Listen(ctx,
 		config.HTTPEndpoint(
-			config.WithDomain("current-ibex-strictly.ngrok-free.app"),
+			config.WithDomain("app.connorisseur.com"),
 		),
 		ngrok.WithAuthtoken(token),
 	)

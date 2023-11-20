@@ -40,25 +40,6 @@
                 <button class="btn btn-danger ml-2" id="fireButton">FIRE!</button>
             </div>
 
-        </div>
-
-        <!-- Panel 2 -->
-        <div class="col-md-4 bg-dark">
-            <h2>Serial Controller</h2>
-            <div id="messages" class="border bg-dark terminal-bg mb-3" style="height: 450px; overflow: auto;"></div>
-            <div class="input-group mb-3">
-                <div class="input-group-prepend">
-                    <button class="btn btn-outline-secondary" id="decreaseFont">-</button>
-                </div>
-                <input type="text" class="form-control" id="fontSize" readonly value="16px">
-                <div class="input-group-append">
-                    <button class="btn btn-outline-secondary" id="increaseFont">+</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Panel 3 -->
-        <div class="col-md-4 border bg-dark mt-3">
             <h3 class="text-center">Microcontroller Connection</h3>
             <div class="d-flex justify-content-center mt-3">
                 <div id="connectionStatus" class="bg-warning rounded-circle" style="width: 20px; height: 20px;"></div>
@@ -88,18 +69,43 @@
             <h4 class="text-center">Upload GCode File</h4>
             <input type="file" id="gcodeFile" accept=".gcode" class="mb-2 bg-dark text-light">
             <button id="uploadButton" class="align-items-center btn-secondary">Upload and Send</button>
+
+        </div>
+
+        <!-- Panel 2 -->
+        <div class="col-md-4 bg-dark">
+            <h2>Serial Controller</h2>
+            <div id="messages" class="border bg-dark terminal-bg mb-3" style="height: 450px; overflow: auto;"></div>
+            <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                    <button class="btn btn-outline-secondary" id="decreaseFont">-</button>
+                </div>
+                <input type="text" class="form-control" id="fontSize" readonly value="16px">
+                <div class="input-group-append">
+                    <button class="btn btn-outline-secondary" id="increaseFont">+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel 3 -->
+        <div class="col-md-4 border bg-dark mt-3">
+            <!-- Status display? -->
         </div>
     
 
-        <!-- Combined Panel 4, 5, 6  STREAMING -->
-        <div class="col-md-8 bg-dark mt-3 d-flex justify-content-center align-items-center livestream-container" style="grid-row: span 2;">
-            <img id="livestreamMainCamera" class="livestream" src="" alt="Main Camera Livestream">
-            <img id="livestreamSecondaryCamera" class="livestream" src="" alt="Secondary Camera Livestream">
+        <!-- Combined Panel for Main Webcam (4, 5) -->
+        <div class="col-md-8 bg-dark mt-3 livestream-container">
+            <img id="livestreamMainCamera" src="" alt="Main Camera Livestream">
+        </div>
+
+        <!-- Panel for Secondary Webcam (6) -->
+        <div class="col-md-4 bg-dark mt-3">
+            <img id="livestreamSecondaryCamera" src="" alt="Secondary Camera Livestream">
         </div>
 
         
         <!-- Panel 7 -->
-        <div class="col-md-4 border bg-dark mt-3">Panel 8</div>
+        <div class="col-md-4 border bg-dark mt-3">Panel 7</div>
 
         <!-- Panel 8 -->
         <div class="col-md-4 border bg-dark mt-3">Panel 8</div>

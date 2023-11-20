@@ -103,10 +103,8 @@ body {
     height: 100%;
 }
 
-.livestream {
-    flex: 1;
-    max-width: 50%; /* Ensures each stream takes up only half the width */
-    height: auto; /* Maintains the aspect ratio */
-    object-fit: cover; /* Optional: if you want to cover the entire panel area */
+#livestreamMainCamera, #livestreamSecondaryCamera {
+    width: 100%; /* Full width of the container */
+    height: auto; /* Maintain aspect ratio */
+    object-fit: cover; /* Optional: cover the entire panel area */
 }
-
