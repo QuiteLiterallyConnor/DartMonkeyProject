@@ -40,7 +40,6 @@
                 <button class="btn btn-danger ml-2" id="fireButton">FIRE!</button>
             </div>
 
-            <h3 class="text-center">Microcontroller Connection</h3>
             <div class="d-flex justify-content-center mt-3">
                 <div id="connectionStatus" class="bg-warning rounded-circle" style="width: 20px; height: 20px;"></div>
                 <span class="ml-2" id="connectionLabel">Connecting...</span>
@@ -89,7 +88,49 @@
 
         <!-- Panel 3 -->
         <div class="col-md-4 border bg-dark mt-3">
-            <!-- Status display? -->
+            <div class="col-md-4 border bg-dark">
+                <h3 class="text-center">Status Display</h3>
+                <div class="d-flex justify-content-between mt-3">
+                    <span>X-Axis Angle Degree (-90 - 90):</span>
+                    <span id="xDisplay">0°</span>
+                </div>
+                <div class="d-flex justify-content-between mt-2">
+                    <span>Y-Axis Angle Degree (-90 - 90):</span>
+                    <span id="yDisplay">0°</span>
+                </div>
+                <div class="d-flex justify-content-between mt-2">
+                    <span>Motor A Speed % (0 - 100):</span>
+                    <span id="motorADisplay">0</span>
+                </div>
+                <div class="d-flex justify-content-between mt-2">
+                    <span>Motor B Speed % (0 - 100):</span>
+                    <span id="motorBDisplay">0</span>
+                </div>
+                <div class="d-flex justify-content-between mt-2">
+                    <span>Servo A Angle Degree (-90 - 90):</span>
+                    <span id="servoADisplay">0°</span>
+                </div>
+                <div class="d-flex justify-content-between mt-2">
+                    <span>Servo B Angle Degree (-90 - 90):</span>
+                    <span id="servoBDisplay">0°</span>
+                </div>
+    
+                <div id="arrows">
+                    <div class="arrow d-flex justify-content-center align-items-center" id="up">
+                        <i class="bi bi-arrow-up"></i>
+                    </div>
+                    <div class="arrow d-flex justify-content-center align-items-center" id="left">
+                        <i class="bi bi-arrow-left"></i>
+                    </div>
+                    <div class="arrow d-flex justify-content-center align-items-center" id="right">
+                        <i class="bi bi-arrow-right"></i>
+                    </div>
+                    <div class="arrow d-flex justify-content-center align-items-center" id="down">
+                        <i class="bi bi-arrow-down"></i>
+                    </div>
+                </div>
+    
+            </div>
         </div>
     
 
