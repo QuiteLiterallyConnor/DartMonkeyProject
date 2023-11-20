@@ -34,12 +34,23 @@ void print_status() {
 void adam() {
 
   serialController.handleSerial();
-  Serial.flush();
+  executiveController.ExecuteSerialCommands();
 
 }
 
-std::map<std::string, SerialController::Command> SerialController::initializeCommandMap() {
-    return {
+void init_controllers() {
+  if (executiveController.initialize()) {
+    std::string tmp = "%%%_ERR:EXEC_CONTROLLER:INIT_FAILED";
+    Serial.println(tmp.c_str());
+  }
+
+  serialController.initialize(initSerialCmdMap());
+
+  
+}
+
+std::map<std::string, SerialController::Command> initSerialCmdMap() {
+      return {
         {"E",  {"Executive Controller",           [&](std::string cmd) { executiveController.HandleGcodeCommand(cmd);           return true;  }}},
         {"X",  {"X axis",                         [&](std::string cmd) { xRotationController.handleGcodeCommand(cmd);            return true;  }}},
         {"Y",  {"Y axis",                         [&](std::string cmd) { yRotationController.handleGcodeCommand(cmd);            return true;  }}},
@@ -52,119 +63,6 @@ std::map<std::string, SerialController::Command> SerialController::initializeCom
     };
 }
 
-volatile bool blink = false;
-void blink_thread() {
-  while (1) {
-    if (blink) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(100);
-      digitalWrite(LED_BUILTIN, LOW);
-      blink = false;
-    }
-  }
-}
-
-void blinkLED() {
-  blink = true;
-}
-
-void init_controllers() {
-  if (executiveController.initialize()) {
-    std::string tmp = "%%%_ERR:EXEC_CONTROLLER:INIT_FAILED";
-    Serial.println(tmp.c_str());
-  }
-}
-
-void SerialController::initialize(std::map<std::string, Command> cmdMap) {
-  commandMap = cmdMap;
-  threads.addThread(blink_thread, 0);
-  std::string tmp = "%%%_INFO:EXECUTIVE_CONTROLLER:Finished init";
-  Serial.println(tmp.c_str());
-}
-
-void SerialController::handleSerial() {
-    if (millis() - lastCheckTime >= checkInterval) {
-        processSerialInput();
-        lastCheckTime = millis();
-    }
-}
-
-void SerialController::processSerialInput() {
-    while (Serial.available()) {
-        char incomingChar = Serial.read();
-        inputBuffer += incomingChar;
-
-        if (incomingChar != '\n' && incomingChar != '\r') {
-            continue;
-        }
-
-        inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\n'), inputBuffer.end());
-        inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\r'), inputBuffer.end());
-        blinkLED();
-        Serial.flush();
-
-        char *token = strtok(&inputBuffer[0], ";");
-        while (token != NULL) {
-            std::string command = token;
-            command.erase(std::remove_if(command.begin(), command.end(), ::isspace), command.end());
-
-            if (!isValidCommand(command)) {
-                std::string error_msg = "%%%_ERR:INVALID_CMD:" + command;
-                Serial.println(error_msg.c_str());
-            } else {
-                Serial.printf("Processing command: ");
-                Serial.println(command.c_str());
-                handleCommand(command);
-            }
-
-            token = strtok(NULL, ";");
-        }
-
-        inputBuffer = "";
-    }
-}
-
-bool SerialController::isValidCommand(const std::string& cmd) {
-    if (cmd.empty()) return false;
-    char commandType = cmd[0];
-    if (!isalpha(commandType) || commandType < 'A' || commandType > 'Z') {
-        Serial.print("%%%_ERR:INVALID_COMMAND:Invalid first character");
-        return false;
-    }
-    if (cmd.length() == 1) return false;
-    char commandAction = cmd[1];
-    if (!isalpha(commandAction) || commandAction < 'A' || commandAction > 'Z') {
-        Serial.print("%%%_ERR:INVALID_COMMAND:Invalid second character");
-        return false;
-    }
-
-    auto cmdMap = initializeCommandMap();
-    if (cmdMap.find(std::string(1, commandType)) == cmdMap.end()) {
-        Serial.print("%%%_ERR:INVALID_COMMAND:Command not found");
-        return false;
-    }
-
-    std::string valueString = cmd.substr(2);
-    for (size_t i = 0; i < valueString.length(); ++i) {
-        char c = valueString[i];
-        if (!isdigit(c) && (c != '-' || i != 0)) {
-          Serial.print("%%%_ERR:INVALID_COMMAND:Invalid character in value");
-          return false;
-        }
-    }
-
-    // int value = std::stoi(valueString);
-
-    return true;
-}
-
-void SerialController::handleCommand(const std::string& cmd) {
-    std::string label = cmd.substr(0, 1);
-    std::string stdcmd = cmd;
-    Command& command = commandMap[label];
-    command.action(stdcmd);
-}
-
 void ExecutiveController::storeTransmittedMessage(const char * msg) {
     std::string msgStr = msg;
     if (msgStr.find("HEARTBEAT") == std::string::npos) { // heartbeat not found in string
@@ -173,9 +71,7 @@ void ExecutiveController::storeTransmittedMessage(const char * msg) {
 }
 
 int ExecutiveController::initialize() {
-
     sessionKey = "NOT_SET";
-
     std::string tmp = "%%%_INFO: EXECUTIVE CONTROLLER: STARTING SETUP";
     Serial.println(tmp.c_str());
 
@@ -205,6 +101,75 @@ void ExecutiveController::PrintHeartbeat() {
   Serial.println(tmp.c_str());
 }
 
+void ExecutiveController::ExecuteSerialCommands() {
+    std::vector<std::string> cmds;
+
+    if (serialController.commandBuffer.empty()) {
+      return;
+    } else {
+        cmds = serialController.commandBuffer;
+        serialController.commandBuffer.clear();
+
+        for (const std::string& cmd : cmds) {
+            if (!isValidCommand(cmd)) {
+                std::string error_msg = "%%%_ERR:INVALID_CMD:" + cmd;
+                Serial.println(error_msg.c_str());
+            } else {
+                Serial.printf("Processing command: ");
+                Serial.println(cmd.c_str());
+                handleCommand(cmd);
+            }
+        }
+
+
+    }
+
+}
+
+
+bool ExecutiveController::isValidCommand(const std::string& cmd) {
+    if (cmd.empty()) return false;
+    char commandType = cmd[0];
+    if (!isalpha(commandType) || commandType < 'A' || commandType > 'Z') {
+        Serial.print("%%%_ERR:INVALID_COMMAND:Invalid first character");
+        return false;
+    }
+    if (cmd.length() == 1) return false;
+    char commandAction = cmd[1];
+    if (!isalpha(commandAction) || commandAction < 'A' || commandAction > 'Z') {
+        Serial.print("%%%_ERR:INVALID_COMMAND:Invalid second character");
+        return false;
+    }
+
+    std::map<std::string, SerialController::Command> cmdMap = serialController.commandMap;
+
+    if (cmdMap.find(std::string(1, commandType)) == cmdMap.end()) {
+        Serial.print("%%%_ERR:INVALID_COMMAND:Command not found");
+        return false;
+    }
+
+    std::string valueString = cmd.substr(2);
+    for (size_t i = 0; i < valueString.length(); ++i) {
+        char c = valueString[i];
+        if (!isdigit(c) && (c != '-' || i != 0)) {
+          Serial.print("%%%_ERR:INVALID_COMMAND:Invalid character in value");
+          return false;
+        }
+    }
+
+    // int value = std::stoi(valueString);
+
+    return true;
+}
+
+void ExecutiveController::handleCommand(const std::string& cmd) {
+    std::string label = cmd.substr(0, 1);
+    std::string stdcmd = cmd;
+    std::map<std::string, SerialController::Command> commandMap = serialController.commandMap;
+    SerialController::Command& command = commandMap[label];
+    command.action(stdcmd);
+}
+
 void ExecutiveController::Reset() {
   SCB_AIRCR = 0x05FA0004; // Write a value to Application Interrupt and Reset Control Register
 }
@@ -225,7 +190,6 @@ int ExecutiveController::loadConfig() {
     motorBController.initialize("MOTOR_B", doc["MOTOR_B"]);
     motorARelayController.initialize("MOTOR_A_RELAY", doc["MOTOR_A_RELAY"]);
     motorBRelayController.initialize("MOTOR_B_RELAY", doc["MOTOR_B_RELAY"]);
-    serialController.initialize(serialController.initializeCommandMap());
 
     return 0;
 }
