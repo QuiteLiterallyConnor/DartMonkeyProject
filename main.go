@@ -766,6 +766,8 @@ func main() {
 		return
 	}
 
+	fmt.Printf("args: %+v\n", args)
+
 	switch args[0] {
 	case "serial":
 		StartSerial(config)
