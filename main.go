@@ -348,13 +348,11 @@ func (s *Serial) tryConnect() {
 }
 
 func (s *Serial) StartTerminal() {
-	fmt.Printf("StartTerminal called\n")
 	s.InitiateConnectionChecking()
-	fmt.Printf("InitiateConnectionChecking called\n")
 
-	fmt.Println("Waiting for connection...")
+	fmt.Println("Waiting for connection on port %v\n", s.Port_Path)
 	for !s.IsConnected {
-		time.Sleep(time.Second)
+		time.Sleep(s.HeartbeatInterval)
 	}
 	fmt.Println("Connected!")
 
