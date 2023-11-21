@@ -712,7 +712,9 @@ func StartServer(config Config) {
 }
 
 func StartSerial(config Config) {
+	fmt.Printf("Getting new serial...\n")
 	serial := NewSerial(config.ComPort)
+	fmt.Printf("Got new serial...\n")
 	go serial.StartTerminal()
 }
 
@@ -752,5 +754,7 @@ func main() {
 	default:
 		fmt.Println("Invalid argument. Please specify 'serial', 'serve', or 'all'.")
 	}
+
+	select {}
 
 }
