@@ -1,7 +1,7 @@
 const wsURL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/controller/ws";
 const ws = new WebSocket(wsURL);
 // const livestreamLocation = window.location.protocol + '//' + window.location.hostname + ':6001/stream';
-const livestreamLocation = "/stream/";
+const livestreamLocation = "/stream?d=";
 
 // document.addEventListener('DOMContentLoaded', function () {
 //     var video = document.getElementById('video');
@@ -34,8 +34,8 @@ $(document).ready(function() {
         clearInterval(intervalID);
     };
 
-    $("#livestreamMainCamera").attr("src", livestreamLocation + "1");
-    $("#livestreamSecondaryCamera").attr("src", livestreamLocation + "2");
+    $("#livestreamMainCamera").attr("src", livestreamLocation + "Targetting_Main");
+    $("#livestreamSecondaryCamera").attr("src", livestreamLocation + "Secondary");
 
 
     let lastHeartbeatTime = Date.now();
