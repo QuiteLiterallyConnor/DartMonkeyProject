@@ -115,8 +115,6 @@ void ExecutiveController::ExecuteSerialCommands() {
                 std::string error_msg = "%%%_ERR:INVALID_CMD:" + cmd;
                 Serial.println(error_msg.c_str());
             } else {
-                Serial.printf("Processing command: ");
-                Serial.println(cmd.c_str());
                 handleCommand(cmd);
             }
         }

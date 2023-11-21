@@ -350,7 +350,7 @@ func (s *Serial) tryConnect() {
 func (s *Serial) StartTerminal() {
 	s.InitiateConnectionChecking()
 
-	fmt.Println("Waiting for connection on port %v\n", s.Port_Path)
+	fmt.Printf("Waiting for connection on port %v\n", s.Port_Path)
 	for !s.IsConnected {
 		time.Sleep(s.HeartbeatInterval)
 	}
@@ -358,7 +358,6 @@ func (s *Serial) StartTerminal() {
 
 	go func() {
 		for {
-			fmt.Printf("right before s.Read()\n")
 			msg, err := s.Read()
 			if err == nil {
 				fmt.Println("DEVICE: " + msg)
@@ -716,22 +715,27 @@ func StartServer(config Config) {
 }
 
 func StartSerial(config Config) {
-	fmt.Printf("Getting new serial...\n")
 	serial := NewSerial(config.ComPort)
-	fmt.Printf("Got new serial...\n")
 	go serial.StartTerminal()
 }
 
 func StartAll(config Config) {
+
+	fmt.Printf("Called StartAll, getting NewServer\n")
 	server := NewServer(config)
+	fmt.Printf("Called NewServer, getting NewSerial\n")
 	serial := NewSerial(config.ComPort)
+	fmt.Printf("Called NewSerial, setting server serial to NewSerial\n")
 
 	server.Serial = serial
 
-	for _, cam := range config.Webcams {
+	fmt.Printf("Init webcams\n")
+	for name, cam := range config.Webcams {
+		fmt.Printf("Initting camera: %v\n", name)
 		cam.InitWebcam()
 	}
 
+	fmt.Printf("Calling \"go server.ServeHTML()\"\n")
 	go server.ServeHTML()
 }
 
