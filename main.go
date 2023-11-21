@@ -671,6 +671,9 @@ func (s *Server) ServeHTML() {
 		s.Mu.Lock()
 		webcam, ok := s.Cameras[deviceName]
 		s.Mu.Unlock()
+
+		fmt.Printf("Webcams: %+v\n", s.Cameras)
+
 		if !ok {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
 			return
