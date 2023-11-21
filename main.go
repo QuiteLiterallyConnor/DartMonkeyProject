@@ -657,15 +657,16 @@ func (s *Server) ServeHTML() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Device name is required"})
 			return
 		}
+
 		s.Mu.Lock()
-		cam, ok := s.Cameras[deviceName]
+		webcam, ok := s.Cameras[deviceName]
 		s.Mu.Unlock()
 		if !ok {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
 			return
 		}
-		streamURL := cam.Stream
-		return streamURL
+
+		webcam.Stream(c)
 	})
 
 	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
