@@ -712,6 +712,18 @@ func (s *Server) ServeHTML() {
 func StartServer(config Config) {
 	fmt.Printf("Called StartServer, getting NewServer\n")
 	server := NewServer(config)
+	fmt.Printf("Called NewServer, getting NewSerial\n")
+	serial := NewSerial(config.ComPort)
+	fmt.Printf("Called NewSerial, setting server serial to NewSerial\n")
+
+	server.Serial = serial
+
+	fmt.Printf("Init webcams\n")
+	for name, cam := range config.Webcams {
+		fmt.Printf("Initting camera: %v\n", name)
+		cam.InitWebcam()
+	}
+
 	fmt.Printf("Calling \"go server.ServeHTML()\"\n")
 	go server.ServeHTML()
 }
