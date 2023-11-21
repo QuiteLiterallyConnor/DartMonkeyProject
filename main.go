@@ -710,7 +710,9 @@ func (s *Server) ServeHTML() {
 }
 
 func StartServer(config Config) {
+	fmt.Printf("Called StartServer, getting NewServer\n")
 	server := NewServer(config)
+	fmt.Printf("Calling \"go server.ServeHTML()\"\n")
 	go server.ServeHTML()
 }
 
