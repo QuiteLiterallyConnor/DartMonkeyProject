@@ -748,8 +748,8 @@ func StartAll(config Config) {
 
 	fmt.Printf("Init webcams\n")
 	for name, cam := range config.Webcams {
-		fmt.Printf("Initting camera: %v\n", name)
 		cam.InitWebcam()
+		server.Cameras[name] = &cam
 	}
 
 	fmt.Printf("Calling \"go server.ServeHTML()\"\n")
