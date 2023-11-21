@@ -1,3 +1,12 @@
 [
-    {"name": "unit1", "com_port": "/dev/ttyACM0", "webcam_port": "/dev/video1", "webcam2_port": "/dev/video3" ,"server_port": "5001"}
+    {
+        "webcams": [
+            {"webcam2_port": "/dev/video3"},
+            {"webcam_port": "/dev/video1"}
+        ],
+    
+        "serial_path": "/dev/ttyACM0",
+        "name": "unit1",
+        "server_port": "5001"
+    }
 ]

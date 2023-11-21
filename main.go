@@ -1,14 +1,23 @@
 package main
 
 import (
+	"fmt"
+	"os"
+)
+
+package main
+
+import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"mime/multipart"
 	"net"
 	"net/http"
+	"net/textproto"
 	"os"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,81 +29,74 @@ import (
 	"github.com/mssola/user_agent"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/tarm/serial"
+	"github.com/vladimirvivien/go4vl/device"
+	"github.com/vladimirvivien/go4vl/v4l2"
+	"golang.ngrok.com/ngrok"
+	"golang.ngrok.com/ngrok/config"
 )
 
-type GStreamerServer struct {
-	compressionLevel int
-	maxFiles         int
-	bufferDuration   int
-	segmentDuration  int
-	gstPath          string
+type Webcam struct {
+	Name		 string
+	Path         string
+	Camera 		*device.Device
+	Frames <-chan []byte
 }
 
-func (g *GStreamerServer) init() {
-	g.compressionLevel = 50
-	g.segmentDuration = 1
-	g.bufferDuration = 60
-	g.maxFiles = int(g.bufferDuration / g.segmentDuration)
-	g.gstPath = "E:\\gstreamer\\1.0\\msvc_x86_64\\bin\\gst-launch-1.0.exe"
-}
-
-func (g *GStreamerServer) StartWebcamStream() {
-	go g.CallStreamerExecutable()
-	go g.CleanUpHLSFiles()
-}
-
-func (g *GStreamerServer) CallStreamerExecutable() {
-	quantizerValue := 20 + (g.compressionLevel * 30 / 100)
-
-	cmd := exec.Command(
-		g.gstPath,
-		"mfvideosrc",
-		"!",
-		"videoconvert",
-		"!",
-		"tee", "name=t",
-		"t.",
-		"!",
-		"queue",
-		"!",
-		"videoconvert",
-		"!",
-		"x264enc", "bitrate=500", "quantizer="+strconv.Itoa(quantizerValue), "speed-preset=ultrafast", "tune=zerolatency",
-		"!",
-		"mpegtsmux",
-		"!",
-		"hlssink", "location=./hls/segment%05d.ts", "playlist-location=./hls/playlist.m3u8", "max-files="+strconv.Itoa(g.maxFiles), "target-duration="+strconv.Itoa(g.segmentDuration),
+func NewWebcam(deviceName string) (*Webcam, error) {
+	camera, err := device.Open(
+		deviceName,
+		device.WithPixFormat(v4l2.PixFormat{PixelFormat: v4l2.PixelFmtMJPEG, Width: 640, Height: 480}),
 	)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+	if err != nil {
+		return nil, err
 	}
+
+	if err := camera.Start(context.TODO()); err != nil {
+		camera.Close()
+		return nil, err
+	}
+
+	return &Webcam{
+		camera: camera,
+		frames: camera.GetOutput(),
+	}, nil
 }
 
-func (g *GStreamerServer) CleanUpHLSFiles() {
-	for {
-		time.Sleep(time.Second * time.Duration(g.bufferDuration))
-		files, _ := os.ReadDir("./hls")
-		if len(files) > g.maxFiles {
-			for i := 0; i < len(files)-g.maxFiles; i++ {
-				os.Remove("./hls/" + files[i].Name())
-			}
+func (webcam *Webcam) Close() {
+	webcam.camera.Close()
+}
+
+func (webcam *Webcam) Stream(c *gin.Context) {
+	w := c.Writer
+	mimeWriter := multipart.NewWriter(w)
+	w.Header().Set("Content-Type", fmt.Sprintf("multipart/x-mixed-replace; boundary=%s", mimeWriter.Boundary()))
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Add("Content-Type", "image/jpeg")
+
+	for frame := range webcam.frames {
+		partWriter, err := mimeWriter.CreatePart(partHeader)
+		if err != nil {
+			log.Printf("failed to create multi-part writer: %s", err)
+			return
+		}
+
+		if _, err := partWriter.Write(frame); err != nil {
+			log.Printf("failed to write image: %s", err)
 		}
 	}
 }
 
 type Config struct {
-	Name       string `json:"name"`
-	ComPort    string `json:"com_port"`
-	CameraPort string `json:"camera_port"`
-	ServerPort string `json:"server_port"`
+	Name        string `json:"name"`
+	ComPort     string `json:"serial_path"`
+	Webcams  	[]Webcam	`json:"webcam_port"`
+	Webcam2Port string `json:"webcam2_port"`
+	CameraPort  string `json:"camera_port"`
+	ServerPort  string `json:"server_port"`
 }
 
 func readConfig() ([]Config, error) {
-	file, err := os.Open("config_windows.json")
+	file, err := os.Open("config_linux.json")
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +337,7 @@ func (s *Serial) checkConnection() {
 }
 
 func (s *Serial) sendHeartbeat() {
-	s.Write("H")
+	s.Write("EH")
 	time.Sleep(time.Duration(s.HeartbeatInterval))
 }
 
@@ -363,57 +365,13 @@ func (s *Serial) Read() (string, error) {
 }
 
 func (s *Serial) Write(message string) error {
-	fmt.Printf("SENT TO DEVICE: %v\n", message)
+	// fmt.Printf("SENT TO DEVICE: %v\n", message)
 	_, err := s.Port.Write([]byte(message + "\n"))
 	return err
 }
 
 func (s *Serial) InitiateConnectionChecking() {
 	go s.checkConnection()
-}
-
-type CameraServer struct {
-	Port string
-	Cmd  *exec.Cmd
-}
-
-func NewCameraServer(comPort string) *CameraServer {
-	c := &CameraServer{
-		Port: comPort,
-	}
-	return c
-}
-
-func (c *CameraServer) Start() error {
-	if c.Cmd != nil && c.Cmd.Process != nil {
-		return fmt.Errorf("server already running")
-	}
-	c.Cmd = exec.Command("python", "camera_server.py", c.Port)
-	c.Cmd.Stdout = os.Stdout
-	c.Cmd.Stderr = os.Stderr
-	return c.Cmd.Start()
-}
-
-func (c *CameraServer) Stop() error {
-	if c.Cmd != nil && c.Cmd.Process != nil {
-		err := c.Cmd.Process.Kill()
-		if err != nil {
-			return err
-		}
-		c.Cmd.Wait()
-		c.Cmd = nil
-		return nil
-	}
-	return fmt.Errorf("server not running")
-}
-
-func (c *CameraServer) Restart() error {
-	err := c.Stop()
-	if err != nil {
-		return fmt.Errorf("error stopping server: %v", err)
-	}
-	time.Sleep(1 * time.Second)
-	return c.Start()
 }
 
 var upgrader = websocket.Upgrader{
@@ -425,7 +383,7 @@ var upgrader = websocket.Upgrader{
 type Server struct {
 	IPv4          string  `json:"ipv4"`
 	Serial        *Serial `json:"serial"`
-	Camera        *CameraServer
+	Cameras       *Webcam[]
 	Config        Config `json:"config"`
 	Connections   map[*websocket.Conn]struct{}
 	Mu            sync.Mutex
@@ -433,12 +391,22 @@ type Server struct {
 }
 
 func NewServer(config Config) *Server {
-	serial := NewSerial(config.ComPort)
-	camera := NewCameraServer(config.CameraPort)
+	serial := Serial{}
+	camera, err := NewWebcam(config.WebcamPort)
+	if err != nil {
+		fmt.Printf("Failed to init webcam with device %v\n", config.WebcamPort)
+	}
+
+	camera2, err := NewWebcam(config.Webcam2Port)
+	if err != nil {
+		fmt.Printf("Failed to init webcam with device %v\n", config.WebcamPort)
+	}
+
 	return &Server{
 		IPv4:          getLocalIP(),
 		Serial:        serial,
-		Camera:        camera,
+		Cameras:        camera,
+		Camera2:       camera2,
 		Config:        config,
 		Connections:   make(map[*websocket.Conn]struct{}),
 		System_States: make(map[string]int),
@@ -551,7 +519,7 @@ func (s *Server) listenToFrontend(conn *websocket.Conn) {
 }
 
 func (s *Server) sendMessageToClientConnection(conn *websocket.Conn, sender, message string) error {
-	fmt.Printf("SENDING MESSAGE FROM %v to FRONTEND: %v\n", sender, message)
+	// gfmt.Printf("SENDING MESSAGE FROM %v to FRONTEND: %v\n", sender, message)
 	return conn.WriteMessage(websocket.TextMessage, senderMessageToJsonBytes(sender, message))
 }
 
@@ -606,16 +574,24 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 			continue
 		}
 		line = strings.TrimSpace(line)
-		fmt.Printf("DEVICE: %v\n", line)
+
+		// Using regular expressions to replace unwanted number of percent signs with desired "%%%_"
+		re := regexp.MustCompile(`%+_`)
+		line = re.ReplaceAllString(line, "%%%_")
+
+		// fmt.Printf("DEVICE: %v\n", line)
 		s.Serial.Buffer = append(s.Serial.Buffer, SenderMessage{"DEVICE", line})
-		if strings.HasPrefix(line, "%%%") {
+		if strings.Contains(line, "%%%") {
 			s.updateStoredSystemState(line)
 			s.sendMessageToAllClientConnections("DEVICE", line)
-
 		}
 
 	}
+}
 
+func trimMessage(input string) string {
+	regex := regexp.MustCompile(`^%+`)
+	return regex.ReplaceAllString(input, "")
 }
 
 func senderMessageToJsonBytes(sender, message string) []byte {
@@ -635,7 +611,6 @@ type SystemInfo struct {
 	DoHeartbeat       bool            `json:"do_heartbeat"`
 	HeartbeatInterval time.Duration   `json:"heartbeat_interval"`
 	SerialBuffer      []SenderMessage `json:"serial_buffer"`
-	CameraServerPort  string          `json:"camera_server_port"`
 	Config            Config          `json:"config"`
 }
 
@@ -647,7 +622,6 @@ func (s *Server) SystemInfo() SystemInfo {
 		IsConnected:       s.Serial.IsConnected,
 		HeartbeatInterval: s.Serial.HeartbeatInterval/time.Second - 1,
 		SerialBuffer:      s.Serial.Buffer,
-		CameraServerPort:  s.Camera.Port,
 		Config:            s.Config,
 	}
 }
@@ -656,6 +630,7 @@ func (s *Server) ServeHTML() {
 	r := gin.Default()
 	r.ForwardedByClientIP = true
 	r.Static("/public", "./public")
+	r.Static("/hls", "./hls")
 	r.LoadHTMLGlob("./public/*.html")
 	a := NewAdmin()
 
@@ -678,8 +653,37 @@ func (s *Server) ServeHTML() {
 		s.handleWebSocket(c)
 	})
 
+	r.GET("/stream/1", s.Camera.Stream)
+	r.GET("/stream/2", s.Camera2.Stream)
+
 	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
-	r.Run(":" + s.Config.ServerPort)
+	// r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
+
+	token := os.Getenv("NGROK_AUTHTOKEN")
+
+	ctx := context.Background()
+	listener, err := ngrok.Listen(ctx,
+		config.HTTPEndpoint(
+			config.WithDomain("app.connorisseur.com"),
+		),
+		ngrok.WithAuthtoken(token),
+	)
+	if err != nil {
+		fmt.Println("ngrok listen error:", err)
+		return
+	}
+
+	fmt.Println("ngrok tunnel created:", listener.Addr().String())
+
+	if err != nil {
+		fmt.Println("ngrok listen error:", err)
+		return
+	}
+
+	fmt.Printf("Server %s started at %s\n", s.Config.Name, listener.Addr().String())
+	if err := http.Serve(listener, r); err != nil {
+		fmt.Println("Server error:", err)
+	}
 }
 
 func main() {
@@ -691,9 +695,38 @@ func main() {
 
 	for _, config := range configs {
 		server := NewServer(config)
-		go server.ServeHTML() // Start each server in its goroutine
-		server.Camera.Start()
+		go server.ServeHTML() // Pass the context to ServeHTML
+		defer server.Camera.Close()
+
 	}
 
 	select {} // prevent main from exiting
+}
+
+
+func main() {
+	configs, err := readConfig()
+	if err != nil {
+		fmt.Println("Error reading config:", err)
+		return
+	}
+
+	args := os.Args[1:]
+	if len(args) < 1 {
+		fmt.Printf("No arguments provided. Please specify 'serial', 'serve', or 'all'.\nExample: \"go run all\"\n")
+		return
+	}
+
+	switch args[0] {
+	case "serial":
+		serial := NewSerial(config.ComPort)
+	case "serve":
+		NewServer()
+	case "all":
+		serial := NewSerial(config.ComPort)
+		NewServer(config)
+	default:
+		fmt.Println("Invalid argument. Please specify 'serial', 'serve', or 'all'.")
+	}
+
 }
