@@ -353,6 +353,8 @@ func (s *Serial) StartTerminal() {
 			msg, err := s.Read()
 			if err == nil {
 				fmt.Println("DEVICE: " + msg)
+			} else {
+				fmt.Printf("Failed to read from device %s: %v\n", s.Port_Path, err)
 			}
 		}
 	}()
