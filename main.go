@@ -348,8 +348,13 @@ func (s *Serial) tryConnect() {
 }
 
 func (s *Serial) StartTerminal() {
+	fmt.Printf("StartTerminal called\n")
+	s.InitiateConnectionChecking()
+	fmt.Printf("InitiateConnectionChecking called\n")
+
 	go func() {
 		for {
+			fmt.Printf("right before s.Read()\n")
 			msg, err := s.Read()
 			if err == nil {
 				fmt.Println("DEVICE: " + msg)
