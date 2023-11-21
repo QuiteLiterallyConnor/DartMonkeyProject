@@ -1,13 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
-)
-
-package main
-
-import (
 	"bufio"
 	"context"
 	"encoding/json"
@@ -36,9 +29,9 @@ import (
 )
 
 type Webcam struct {
-	Name		 string
-	Path         string
-	Camera 		*device.Device
+	Name		 string				`json:"name"`
+	Path         string				`json:"path"`
+	Camera 		*device.Device		
 	Frames <-chan []byte
 }
 
@@ -87,29 +80,28 @@ func (webcam *Webcam) Stream(c *gin.Context) {
 }
 
 type Config struct {
-	Name        string `json:"name"`
-	ComPort     string `json:"serial_path"`
-	Webcams  	[]Webcam	`json:"webcam_port"`
-	Webcam2Port string `json:"webcam2_port"`
-	CameraPort  string `json:"camera_port"`
-	ServerPort  string `json:"server_port"`
+	Name        string		`json:"name"`
+	ComPort     string 		`json:"serial_path"`
+	Webcams  	[]Webcam{}	`json:"webcams"`
+	CameraPort  string 		`json:"camera_port"`
+	ServerPort  string 		`json:"server_port"`
 }
 
-func readConfig() ([]Config, error) {
+func readConfig() (Config, error) {
 	file, err := os.Open("config_linux.json")
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	configs := []Config{}
+	configs := Config{}
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&configs)
 	if err != nil {
 		return nil, err
 	}
 
-	return configs, nil
+	return config, nil
 }
 
 type Admin struct {
@@ -705,7 +697,7 @@ func main() {
 
 
 func main() {
-	configs, err := readConfig()
+	config, err := readConfig()
 	if err != nil {
 		fmt.Println("Error reading config:", err)
 		return

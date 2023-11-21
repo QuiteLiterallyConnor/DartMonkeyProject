@@ -1,12 +1,11 @@
-[
-    {
-        "webcams": [
-            {"webcam2_port": "/dev/video3"},
-            {"webcam_port": "/dev/video1"}
-        ],
-    
-        "serial_path": "/dev/ttyACM0",
-        "name": "unit1",
-        "server_port": "5001"
-    }
-]
+
+{
+    "webcams": [
+        {"name": "Targetting_Main", "path": "/dev/video1"},
+        {"name": "Secondary", "path": "/dev/video3"}
+    ],
+
+    "serial_path": "/dev/ttyACM0",
+    "name": "unit1",
+    "server_port": "5001"
+}
