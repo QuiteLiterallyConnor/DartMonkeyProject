@@ -352,6 +352,12 @@ func (s *Serial) StartTerminal() {
 	s.InitiateConnectionChecking()
 	fmt.Printf("InitiateConnectionChecking called\n")
 
+	fmt.Println("Waiting for connection...")
+	for !s.IsConnected {
+		time.Sleep(time.Second)
+	}
+	fmt.Println("Connected!")
+
 	go func() {
 		for {
 			fmt.Printf("right before s.Read()\n")
