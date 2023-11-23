@@ -12,6 +12,7 @@ import (
 
 // Token struct
 type Token struct {
+	ID           uint      `gorm:"primaryKey;autoIncrement"` // Unique ID field
 	Created_Time time.Time `json:"created_time" gorm:"created_time not null"`
 	Used_Time    time.Time `json:"used_time" gorm:"used_time not null"`
 	TokenID      string    `json:"tokenid" gorm:"tokenid not null"`
@@ -51,8 +52,20 @@ func main() {
 
 	log.Println("Tokens inserted into the database successfully.")
 
+	// Example usage of removeTokens function
+	removeTokens(db, "token1")
+
 	// Retrieve and print tokens from the database
 	printTokens(db)
+}
+
+// removeTokens removes all entries with a specified TokenID
+func removeTokens(db *gorm.DB, tokenID string) {
+	result := db.Where("token_id = ?", tokenID).Delete(&Token{})
+	if result.Error != nil {
+		log.Fatal(result.Error)
+	}
+	log.Printf("Tokens with TokenID '%s' removed from the database.\n", tokenID)
 }
 
 // printTokens retrieves and prints tokens from the database
@@ -65,6 +78,6 @@ func printTokens(db *gorm.DB) {
 
 	log.Println("Tokens in the database:")
 	for _, token := range tokens {
-		log.Printf("TokenID: %s, Created_Time: %v, Used_Time: %v, IsUsed: %t\n", token.TokenID, token.Created_Time, token.Used_Time, token.IsUsed)
+		log.Printf("ID: %d, TokenID: %s, Created_Time: %v, Used_Time: %v, IsUsed: %t\n", token.ID, token.TokenID, token.Created_Time, token.Used_Time, token.IsUsed)
 	}
 }
