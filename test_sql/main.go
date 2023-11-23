@@ -39,7 +39,7 @@ func main() {
 	tokens := []Token{
 		{Created_Time: time.Now(), TokenID: "token1", IsUsed: false},
 		{Created_Time: time.Now(), TokenID: "token2", IsUsed: false},
-		{Created_Time: time.Now(), Used_Time: time.Now(): "token2", IsUsed: false},
+		{Created_Time: time.Now(), Used_Time: time.Now(), TokenID: "token2", IsUsed: false},
 	}
 
 	// Insert tokens into the database
