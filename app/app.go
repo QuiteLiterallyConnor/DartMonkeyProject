@@ -305,7 +305,7 @@ func (s *Server) AuthRequired() gin.HandlerFunc {
 func (s *Server) ServeHTML() {
 	r := gin.Default()
 	r.ForwardedByClientIP = true
-	r.Static("app/public", "./app/public")
+	r.Static("public", "./public")
 	r.LoadHTMLGlob("./app/public/*.html")
 
 	s.Serial.InitiateConnectionChecking()
@@ -332,13 +332,7 @@ func (s *Server) ServeHTML() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Device name is required"})
 			return
 		}
-
-		fmt.Printf("Webcams: %+v\n", s.Cameras)
-
 		webcam, ok := s.Cameras[deviceName]
-
-		fmt.Printf("webcam: %+v\n", webcam)
-
 		if !ok {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
 			return
