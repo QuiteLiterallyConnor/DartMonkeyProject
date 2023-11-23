@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -23,27 +22,28 @@ type Token struct {
 }
 
 func main() {
-	// Define the command-line flags
-	addFlag := flag.Bool("add", false, "Add a new token")
-	removeFlag := flag.String("remove", "", "Remove a token with the specified ID")
-	listFlag := flag.Bool("list", false, "List all tokens")
+	if len(os.Args) < 2 {
+		fmt.Println("No valid operation specified. Use 'add', 'remove [tokenID]', or 'list'.")
+		return
+	}
 
-	// Parse the flags
-	flag.Parse()
-
-	// Database connection
+	command := os.Args[1]
 	db := connectDb("tokens")
 
-	// Check which flag was passed
-	switch {
-	case *addFlag:
+	switch command {
+	case "add":
 		addToken(db)
-	case *removeFlag != "":
-		removeToken(db, *removeFlag)
-	case *listFlag:
+	case "remove":
+		if len(os.Args) < 3 {
+			fmt.Println("Please specify a token ID to remove.")
+			return
+		}
+		tokenID := os.Args[2]
+		removeToken(db, tokenID)
+	case "list":
 		printTokens(db)
 	default:
-		fmt.Println("No valid operation specified. Use 'add', 'remove', or 'list'.")
+		fmt.Println("Invalid operation specified. Use 'add', 'remove [tokenID]', or 'list'.")
 	}
 }
 
