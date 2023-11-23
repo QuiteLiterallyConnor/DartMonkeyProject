@@ -1,42 +1,47 @@
 package main
 
 import (
-    "database/sql"
-    "fmt"
-    "log"
+	"database/sql"
+	"fmt"
+	"log"
+	"os"
 
-    _ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
-    // Open database connection
-    db, err := sql.Open("mysql", "users:User1234!@tcp(127.0.0.1:3306)/")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer db.Close()
+	// Retrieve environment variables
+	user := os.Getenv("SQL_USER")
+	pass := os.Getenv("SQL_PASSWORD")
 
-    // Execute the query
-    rows, err := db.Query("SHOW DATABASES")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer rows.Close()
+	// Open database connection to the "tokens" database
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/tokens", user, pass))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
 
-    fmt.Println("Databases:")
-    var dbName string
-    for rows.Next() {
-        // Get the database name
-        err := rows.Scan(&dbName)
-        if err != nil {
-            log.Fatal(err)
-        }
-        fmt.Println(dbName)
-    }
+	// Example query to show tables in the "tokens" database
+	rows, err := db.Query("SHOW TABLES")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
 
-    // Check for errors from iterating over rows
-    err = rows.Err()
-    if err != nil {
-        log.Fatal(err)
-    }
+	fmt.Println("Tables in the 'tokens' database:")
+	var tableName string
+	for rows.Next() {
+		// Get the table name
+		err := rows.Scan(&tableName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(tableName)
+	}
+
+	// Check for errors from iterating over rows
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
