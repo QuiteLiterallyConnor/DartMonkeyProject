@@ -113,6 +113,6 @@ func getStoredTokens(db *gorm.DB) (t []Token) {
 func printTokens(db *gorm.DB) {
 	tkns := getStoredTokens(db)
 	for _, tkn := range tkns {
-		fmt.Println(tkn)
+		fmt.Printf("%+v\n", tkn)
 	}
 }
