@@ -1,9 +1,8 @@
-package main
+package db
 
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"time"
 
@@ -20,34 +19,17 @@ type Token struct {
 	IsUsed       bool      `json:"isused" gorm:"isused not null"`
 }
 
-func main() {
+func isValidToken(token string) bool {
 	db := connectDb("tokens")
+	tokens := getStoredTokens(db)
 
-	token := Token{Created_Time: time.Now(), Used_Time: time.Now(), TokenID: generateRandomString(), IsUsed: false}
-
-	result := db.Create(&token)
-	if result.Error != nil {
-		log.Fatal(result.Error)
+	for _, tkn := range tokens {
+		if tkn == token {
+			return true
+		}
 	}
 
-	fmt.Printf("Added token \"%s\"\n")
-
-	printTokens(db)
-}
-
-func generateRandomString() string {
-	rand.Seed(time.Now().UnixNano())
-
-	// Characters to choose from
-	charSet := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	length := 12
-	randomString := make([]byte, length)
-
-	for i := range randomString {
-		randomString[i] = charSet[rand.Intn(len(charSet))]
-	}
-
-	return string(randomString)
+	return false
 }
 
 func connectDb(dbName string) *gorm.DB {
@@ -69,6 +51,7 @@ func connectDb(dbName string) *gorm.DB {
 	return db
 }
 
+// removeTokens removes all entries with a specified TokenID
 func removeToken(db *gorm.DB, tokenID string) {
 	result := db.Where("token_id = ?", tokenID).Delete(&Token{})
 	if result.Error != nil {
@@ -77,6 +60,7 @@ func removeToken(db *gorm.DB, tokenID string) {
 	log.Printf("Tokens with TokenID '%s' removed from the database.\n", tokenID)
 }
 
+// printTokens retrieves and prints tokens from the database
 func getStoredTokens(db *gorm.DB) (t []string) {
 	var tokens []Token
 	result := db.Find(&tokens)
@@ -89,11 +73,4 @@ func getStoredTokens(db *gorm.DB) (t []string) {
 	}
 
 	return
-}
-
-func printTokens(db *gorm.DB) {
-	tkns := getStoredTokens(db)
-	for _, tkn := range tkns {
-		fmt.Println(tkn)
-	}
 }

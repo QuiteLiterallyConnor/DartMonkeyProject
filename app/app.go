@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +15,9 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"golang.ngrok.com/ngrok"
@@ -21,6 +25,7 @@ import (
 
 	"DartMonkeyProject/common"
 	cnfg "DartMonkeyProject/config"
+	_ "DartMonkeyProject/db"
 	"DartMonkeyProject/serial"
 	"DartMonkeyProject/webcam"
 )
@@ -343,10 +348,12 @@ func (s *Server) ServeHTML() {
 
 	r.POST("/submit-token", func(c *gin.Context) {
 		token := c.PostForm("token")
-		if token == "your_secret_token" { // Replace with your actual token
+
+		if isValidToken(token) {
 			// Set cookie or session
 			c.SetCookie("auth", "true", 3600, "/", "", false, true)
 			c.Redirect(http.StatusFound, "/controller")
+			useToken(token)
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		}
@@ -356,4 +363,80 @@ func (s *Server) ServeHTML() {
 	// r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
 
 	s.StartNgrokTunnel(r)
+}
+
+type Token struct {
+	ID           uint      `gorm:"primaryKey;autoIncrement"`
+	Created_Time time.Time `json:"created_time" gorm:"created_time not null"`
+	Used_Time    time.Time `json:"used_time" gorm:"used_time not null"`
+	TokenID      string    `json:"tokenid" gorm:"tokenid not null"`
+	IsUsed       bool      `json:"isused" gorm:"isused not null"`
+}
+
+func useToken(token string) {
+	db := connectDb("tokens")
+	defer db.Close()
+
+	// Prepare the update data
+	updateData := map[string]interface{}{
+		"is_used":   true,
+		"used_time": time.Now(),
+	}
+
+	// Update the token in the database
+	result := db.Model(&Token{}).Where("token_id = ?", token).Updates(updateData)
+	if result.Error != nil {
+		log.Fatal(result.Error)
+	}
+	log.Printf("Token '%s' marked as used.\n", token)
+}
+
+func isValidToken(token string) bool {
+	db := connectDb("tokens")
+	defer db.Close()
+
+	var count int64
+	db.Model(&Token{}).Where("token_id = ? AND is_used = false", token).Count(&count)
+
+	return count > 0
+}
+
+func connectDb(dbName string) *gorm.DB {
+	user := os.Getenv("SQL_USER")
+	pass := os.Getenv("SQL_PASSWORD")
+
+	dsn := fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, pass, dbName)
+
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	db.AutoMigrate(&Token{})
+
+	return db
+}
+
+func removeToken(tokenID string) {
+	db := connectDb("tokens")
+	defer db.Close()
+	result := db.Where("token_id = ?", tokenID).Delete(&Token{})
+	if result.Error != nil {
+		log.Fatal(result.Error)
+	}
+	log.Printf("Tokens with TokenID '%s' removed from the database.\n", tokenID)
+}
+
+func getStoredTokens(db *gorm.DB) (t []string) {
+	var tokens []Token
+	result := db.Find(&tokens)
+	if result.Error != nil {
+		log.Fatal(result.Error)
+	}
+
+	for _, token := range tokens {
+		t = append(t, token.TokenID)
+	}
+
+	return
 }
