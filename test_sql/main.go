@@ -1,47 +1,54 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
+
+// Token struct
+type Token struct {
+	Created_Time time.Time `json:"created_time" sql:"created_time"`
+	Used_Time    time.Time `json:"used_time" sql:"used_time"`
+	TokenID      string    `json:"tokenid" sql:"tokenid"`
+	IsUsed       bool      `json:"isused" sql:"isused"`
+}
 
 func main() {
 	// Retrieve environment variables
 	user := os.Getenv("SQL_USER")
 	pass := os.Getenv("SQL_PASSWORD")
 
-	// Open database connection to the "tokens" database
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/tokens", user, pass))
+	// Set up database connection string
+	dsn := fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/tokens?charset=utf8mb4&parseTime=True&loc=Local", user, pass)
+
+	// Open database connection with GORM
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
 
-	// Example query to show tables in the "tokens" database
-	rows, err := db.Query("SHOW TABLES")
-	if err != nil {
-		log.Fatal(err)
+	// AutoMigrate the Token struct
+	db.AutoMigrate(&Token{})
+
+	// Generate phony data
+	tokens := []Token{
+		{Created_Time: time.Now(), TokenID: "token1", IsUsed: false},
+		{Created_Time: time.Now(), TokenID: "token2", IsUsed: false},
+		{Created_Time: time.Now(), Used_Time: time.Now(): "token2", IsUsed: false},
 	}
-	defer rows.Close()
 
-	fmt.Println("Tables in the 'tokens' database:")
-	var tableName string
-	for rows.Next() {
-		// Get the table name
-		err := rows.Scan(&tableName)
-		if err != nil {
-			log.Fatal(err)
+	// Insert tokens into the database
+	for _, token := range tokens {
+		result := db.Create(&token)
+		if result.Error != nil {
+			log.Fatal(result.Error)
 		}
-		fmt.Println(tableName)
 	}
 
-	// Check for errors from iterating over rows
-	err = rows.Err()
-	if err != nil {
-		log.Fatal(err)
-	}
+	log.Println("Tokens inserted into the database successfully.")
 }
