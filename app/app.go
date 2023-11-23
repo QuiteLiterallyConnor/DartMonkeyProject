@@ -305,8 +305,8 @@ func (s *Server) AuthRequired() gin.HandlerFunc {
 func (s *Server) ServeHTML() {
 	r := gin.Default()
 	r.ForwardedByClientIP = true
-	r.Static("/public", "./public")
-	r.LoadHTMLGlob("./public/*.html")
+	r.Static("app/public", "./app/public")
+	r.LoadHTMLGlob("./app/public/*.html")
 
 	s.Serial.InitiateConnectionChecking()
 
