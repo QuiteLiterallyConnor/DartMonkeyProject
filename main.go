@@ -1,15 +1,18 @@
 package main
 
 import (
+	"DartMoneyProject/serial"
+	"DartMonkeyProject/app"
+	"DartMonkeyProject/config"
 	"fmt"
 	"os"
 )
 
-func StartServer(config Config) {
+func StartServer(config config.Config) {
 	fmt.Printf("Called StartServer, getting NewServer\n")
-	server := NewServer(config)
+	server := app.NewServer(config)
 	fmt.Printf("Called NewServer, getting NewSerial\n")
-	serial := NewSerial(config.ComPort)
+	serial := serial.NewSerial(config.ComPort)
 	fmt.Printf("Called NewSerial, setting server serial to NewSerial\n")
 
 	server.Serial = serial
