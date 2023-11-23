@@ -23,7 +23,7 @@ type Token struct {
 }
 
 func main() {
-	// Define flags
+	// Define the command-line flags
 	addFlag := flag.Bool("add", false, "Add a new token")
 	removeFlag := flag.String("remove", "", "Remove a token with the specified ID")
 	listFlag := flag.Bool("list", false, "List all tokens")
@@ -31,16 +31,18 @@ func main() {
 	// Parse the flags
 	flag.Parse()
 
+	// Database connection
 	db := connectDb("tokens")
 
-	// Handle flags
-	if *addFlag {
+	// Check which flag was passed
+	switch {
+	case *addFlag:
 		addToken(db)
-	} else if *removeFlag != "" {
+	case *removeFlag != "":
 		removeToken(db, *removeFlag)
-	} else if *listFlag {
+	case *listFlag:
 		printTokens(db)
-	} else {
+	default:
 		fmt.Println("No valid operation specified. Use 'add', 'remove', or 'list'.")
 	}
 }
