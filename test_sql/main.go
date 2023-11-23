@@ -12,10 +12,10 @@ import (
 
 // Token struct
 type Token struct {
-	Created_Time time.Time `json:"created_time" sql:"created_time"`
-	Used_Time    time.Time `json:"used_time" sql:"used_time"`
-	TokenID      string    `json:"tokenid" sql:"tokenid"`
-	IsUsed       bool      `json:"isused" sql:"isused"`
+	Created_Time time.Time `json:"created_time" gorm:"created_time not null"`
+	Used_Time    time.Time `json:"used_time" gorm:"used_time not null"`
+	TokenID      string    `json:"tokenid" gorm:"tokenid not null"`
+	IsUsed       bool      `json:"isused" gorm:"isused not null"`
 }
 
 func main() {
