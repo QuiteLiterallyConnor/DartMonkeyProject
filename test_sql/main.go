@@ -51,17 +51,20 @@ func main() {
 
 	log.Println("Tokens inserted into the database successfully.")
 
-	// Print out the database tables
-	printDBTables(db)
+	// Retrieve and print tokens from the database
+	printTokens(db)
 }
 
-// printDBTables prints the list of tables in the database
-func printDBTables(db *gorm.DB) {
-	var tables []string
-	db.Raw("SHOW TABLES").Scan(&tables)
+// printTokens retrieves and prints tokens from the database
+func printTokens(db *gorm.DB) {
+	var tokens []Token
+	result := db.Find(&tokens)
+	if result.Error != nil {
+		log.Fatal(result.Error)
+	}
 
-	log.Println("Database Tables:")
-	for _, table := range tables {
-		log.Println(table)
+	log.Println("Tokens in the database:")
+	for _, token := range tokens {
+		log.Printf("TokenID: %s, Created_Time: %v, Used_Time: %v, IsUsed: %t\n", token.TokenID, token.Created_Time, token.Used_Time, token.IsUsed)
 	}
 }
