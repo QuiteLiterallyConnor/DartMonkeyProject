@@ -373,6 +373,7 @@ func (s *Server) ServeHTML() {
 			s.TokenUsage[token] = time.Now()
 			c.SetCookie("auth", "true", 3600, "/", "", false, true)
 			c.Redirect(http.StatusFound, "/controller")
+			useToken(token)
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 		}
