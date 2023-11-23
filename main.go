@@ -27,17 +27,17 @@ func StartServer(config config.Config) {
 	go server.ServeHTML()
 }
 
-func StartSerial(config Config) {
-	serial := NewSerial(config.ComPort)
+func StartSerial(config config.Config) {
+	serial := serial.NewSerial(config.ComPort)
 	go serial.StartTerminal()
 }
 
-func StartAll(config Config) {
+func StartAll(config config.Config) {
 
 	fmt.Printf("Called StartAll, getting NewServer\n")
-	server := NewServer(config)
+	server := app.NewServer(config)
 	fmt.Printf("Called NewServer, getting NewSerial\n")
-	serial := NewSerial(config.ComPort)
+	serial := serial.NewSerial(config.ComPort)
 	fmt.Printf("Called NewSerial, setting server serial to NewSerial\n")
 
 	server.Serial = serial
@@ -53,8 +53,8 @@ func StartAll(config Config) {
 }
 
 func main() {
-	config, err := readConfig()
-	if err != nil {
+	var config config.Config
+	if err := config.ReadConfig(); err != nil {
 		fmt.Println("Error reading config:", err)
 		return
 	}
@@ -71,7 +71,7 @@ func main() {
 	case "serial":
 		StartSerial(config)
 	case "serve":
-		NewServer(config)
+		StartServer(config)
 	case "all":
 		StartAll(config)
 	default:

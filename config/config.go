@@ -1,31 +1,31 @@
 package config
 
 import (
+	"DartMonkeyProject/webcam"
 	"encoding/json"
 	"os"
 )
 
 type Config struct {
-	Name       string            `json:"name"`
-	ComPort    string            `json:"serial_path"`
-	Webcams    map[string]Webcam `json:"webcams"`
-	CameraPort string            `json:"camera_port"`
-	ServerPort string            `json:"server_port"`
+	Name       string                   `json:"name"`
+	ComPort    string                   `json:"serial_path"`
+	Webcams    map[string]webcam.Webcam `json:"webcams"`
+	CameraPort string                   `json:"camera_port"`
+	ServerPort string                   `json:"server_port"`
 }
 
-func readConfig() (Config, error) {
+func (c *Config) ReadConfig() error {
 	file, err := os.Open("config_linux.json")
 	if err != nil {
-		return Config{}, err
+		return err
 	}
 	defer file.Close()
 
-	config := Config{}
 	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&config)
+	err = decoder.Decode(&c)
 	if err != nil {
-		return Config{}, err
+		return err
 	}
 
-	return config, nil
+	return nil
 }

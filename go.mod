@@ -1,12 +1,10 @@
-module main.go
+module DartMonkeyProject
 
 go 1.21.0
 
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/gorilla/websocket v1.5.1
-	github.com/mssola/user_agent v0.6.0
-	github.com/oschwald/geoip2-golang v1.9.0
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
 	github.com/vladimirvivien/go4vl v0.0.5
 	golang.ngrok.com/ngrok v1.5.1
@@ -32,7 +30,6 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/oschwald/maxminddb-golang v1.11.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect

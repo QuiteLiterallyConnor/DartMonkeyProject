@@ -1,6 +1,7 @@
 package serial
 
 import (
+	"DartMonkeyProject/common"
 	"bufio"
 	"fmt"
 	"os"
@@ -16,7 +17,7 @@ type Serial struct {
 	IsConnected       bool   `json:"is_connected"`
 	DoHeartbeat       bool
 	HeartbeatInterval time.Duration
-	Buffer            []SenderMessage
+	Buffer            []common.SenderMessage
 }
 
 func NewSerial(comPort string) *Serial {

@@ -18,38 +18,27 @@ import (
 	"github.com/gorilla/websocket"
 	"golang.ngrok.com/ngrok"
 	"golang.ngrok.com/ngrok/config"
+
+	"DartMonkeyProject/config"
+	"DartMonkeyProject/serial"
+	"DartMonkeyProject/webcam"
 )
 
 type Server struct {
-	IPv4          string  `json:"ipv4"`
-	Serial        *Serial `json:"serial"`
-	Cameras       map[string]*Webcam
-	Config        Config `json:"config"`
+	IPv4          string         `json:"ipv4"`
+	Serial        *serial.Serial `json:"serial"`
+	Cameras       map[string]*webcam.Webcam
+	Config        config.Config `json:"config"`
 	Connections   map[*websocket.Conn]struct{}
 	Mu            sync.Mutex
 	System_States map[string]int `json:"system_states"`
 	Upgrader      websocket.Upgrader
 }
 
-type SystemInfo struct {
-	IPv4              string          `json:"ipv4"`
-	SystemStates      map[string]int  `json:"system_states"`
-	PortPath          string          `json:"port_path"`
-	IsConnected       bool            `json:"is_connected"`
-	DoHeartbeat       bool            `json:"do_heartbeat"`
-	HeartbeatInterval time.Duration   `json:"heartbeat_interval"`
-	SerialBuffer      []SenderMessage `json:"serial_buffer"`
-	Config            Config          `json:"config"`
-}
 
-type SenderMessage struct {
-	Sender  string `json:"sender"`
-	Message string `json:"message"`
-}
-
-func NewServer(config Config) *Server {
-	serial := Serial{}
-	cameras := make(map[string]*Webcam)
+func NewServer(config config.Config) *Server {
+	serial := serial.Serial{}
+	cameras := make(map[string]*webcam.Webcam)
 	var upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
