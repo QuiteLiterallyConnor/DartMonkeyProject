@@ -262,50 +262,7 @@ func (s *Server) SystemInfo() common.SystemInfo {
 	}
 }
 
-func (s *Server) ServeHTML() {
-	r := gin.Default()
-	r.ForwardedByClientIP = true
-	r.Static("/public", "./public")
-	r.LoadHTMLGlob("./public/*.html")
-
-	s.Serial.InitiateConnectionChecking()
-
-	r.GET("/data", func(c *gin.Context) {
-		c.JSON(http.StatusOK, s.SystemInfo())
-	})
-
-	r.GET("/controller", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "controller.html", nil)
-	})
-
-	r.GET("/controller/ws", func(c *gin.Context) {
-		s.handleWebSocket(c)
-	})
-
-	r.GET("/controller/stream", func(c *gin.Context) {
-		deviceName := c.Query("d")
-		if deviceName == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Device name is required"})
-			return
-		}
-
-		fmt.Printf("Webcams: %+v\n", s.Cameras)
-
-		webcam, ok := s.Cameras[deviceName]
-
-		fmt.Printf("webcam: %+v\n", webcam)
-
-		if !ok {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
-			return
-		}
-
-		webcam.Stream(c)
-	})
-
-	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
-	// r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
-
+func (s *Server) StartNgrokTunnel(r *gin.Engine) {
 	token := os.Getenv("NGROK_AUTHTOKEN")
 
 	ctx := context.Background()
@@ -331,4 +288,78 @@ func (s *Server) ServeHTML() {
 	if err := http.Serve(listener, r); err != nil {
 		fmt.Println("Server error:", err)
 	}
+}
+
+func (s *Server) AuthRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		value, err := c.Cookie("auth")
+		if err != nil || value != "true" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+func (s *Server) ServeHTML() {
+	r := gin.Default()
+	r.ForwardedByClientIP = true
+	r.Static("/public", "./public")
+	r.LoadHTMLGlob("./public/*.html")
+
+	s.Serial.InitiateConnectionChecking()
+
+	r.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", nil)
+	})
+
+	r.GET("/data", func(c *gin.Context) {
+		c.JSON(http.StatusOK, s.SystemInfo())
+	})
+
+	r.GET("/controller", s.AuthRequired(), func(c *gin.Context) {
+		c.HTML(http.StatusOK, "controller.html", nil)
+	})
+
+	r.GET("/controller/ws", s.AuthRequired(), func(c *gin.Context) {
+		s.handleWebSocket(c)
+	})
+
+	r.GET("/controller/stream", s.AuthRequired(), func(c *gin.Context) {
+		deviceName := c.Query("d")
+		if deviceName == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Device name is required"})
+			return
+		}
+
+		fmt.Printf("Webcams: %+v\n", s.Cameras)
+
+		webcam, ok := s.Cameras[deviceName]
+
+		fmt.Printf("webcam: %+v\n", webcam)
+
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+			return
+		}
+
+		webcam.Stream(c)
+	})
+
+	r.POST("/submit-token", func(c *gin.Context) {
+		token := c.PostForm("token")
+		if token == "your_secret_token" { // Replace with your actual token
+			// Set cookie or session
+			c.SetCookie("auth", "true", 3600, "/", "", false, true)
+			c.Redirect(http.StatusFound, "/controller")
+		} else {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		}
+	})
+
+	fmt.Printf("Server %s started at http://localhost:%s\n", s.Config.Name, s.Config.ServerPort)
+	// r.Run(fmt.Sprintf(":%s", s.Config.ServerPort))
+
+	s.StartNgrokTunnel(r)
 }
