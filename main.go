@@ -9,21 +9,11 @@ import (
 )
 
 func StartServer(config config.Config) {
-	fmt.Printf("Called StartServer, getting NewServer\n")
 	server := app.NewServer(config)
-	fmt.Printf("Called NewServer, getting NewSerial\n")
-	serial := serial.NewSerial(config.ComPort)
-	fmt.Printf("Called NewSerial, setting server serial to NewSerial\n")
-
-	server.Serial = serial
-
-	fmt.Printf("Init webcams\n")
-	for name, cam := range config.Webcams {
-		fmt.Printf("Initting camera: %v\n", name)
+	server.Serial = serial.NewSerial(config.ComPort)
+	for _, cam := range config.Webcams {
 		cam.InitWebcam()
 	}
-
-	fmt.Printf("Calling \"go server.ServeHTML()\"\n")
 	go server.ServeHTML()
 }
 
@@ -33,22 +23,12 @@ func StartSerial(config config.Config) {
 }
 
 func StartAll(config config.Config) {
-
-	fmt.Printf("Called StartAll, getting NewServer\n")
 	server := app.NewServer(config)
-	fmt.Printf("Called NewServer, getting NewSerial\n")
-	serial := serial.NewSerial(config.ComPort)
-	fmt.Printf("Called NewSerial, setting server serial to NewSerial\n")
-
-	server.Serial = serial
-
-	fmt.Printf("Init webcams\n")
+	server.Serial = serial.NewSerial(config.ComPort)
 	for name, cam := range config.Webcams {
 		cam.InitWebcam()
 		server.Cameras[name] = &cam
 	}
-
-	fmt.Printf("Calling \"go server.ServeHTML()\"\n")
 	go server.ServeHTML()
 }
 
@@ -64,8 +44,6 @@ func main() {
 		fmt.Printf("No arguments provided. Please specify 'serial', 'serve', or 'all'.\nExample: \"go run all\"\n")
 		return
 	}
-
-	fmt.Printf("args: %+v\n", args)
 
 	switch args[0] {
 	case "serial":

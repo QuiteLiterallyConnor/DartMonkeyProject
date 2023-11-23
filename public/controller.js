@@ -34,8 +34,8 @@ $(document).ready(function() {
         clearInterval(intervalID);
     };
 
-    $("#livestreamMainCamera").attr("src", livestreamLocation + "1");
-    $("#livestreamSecondaryCamera").attr("src", livestreamLocation + "2");
+    $("#livestreamMainCamera").attr("src", livestreamLocation + "Targetting_Main");
+    $("#livestreamSecondaryCamera").attr("src", livestreamLocation + "Secondary");
 
 
     let lastHeartbeatTime = Date.now();
