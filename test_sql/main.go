@@ -50,4 +50,18 @@ func main() {
 	}
 
 	log.Println("Tokens inserted into the database successfully.")
+
+	// Print out the database tables
+	printDBTables(db)
+}
+
+// printDBTables prints the list of tables in the database
+func printDBTables(db *gorm.DB) {
+	var tables []string
+	db.Raw("SHOW TABLES").Scan(&tables)
+
+	log.Println("Database Tables:")
+	for _, table := range tables {
+		log.Println(table)
+	}
 }
