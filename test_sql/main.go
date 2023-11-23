@@ -30,7 +30,7 @@ func main() {
 		log.Fatal(result.Error)
 	}
 
-	fmt.Printf("Added token \"%s\"\n")
+	fmt.Printf("Added token \"%s\"\n", token.TokenID)
 
 	printTokens(db)
 }

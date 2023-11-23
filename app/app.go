@@ -375,7 +375,6 @@ type Token struct {
 
 func useToken(token string) {
 	db := connectDb("tokens")
-	defer db.Close()
 
 	// Prepare the update data
 	updateData := map[string]interface{}{
@@ -393,7 +392,6 @@ func useToken(token string) {
 
 func isValidToken(token string) bool {
 	db := connectDb("tokens")
-	defer db.Close()
 
 	var count int64
 	db.Model(&Token{}).Where("token_id = ? AND is_used = false", token).Count(&count)
@@ -419,7 +417,6 @@ func connectDb(dbName string) *gorm.DB {
 
 func removeToken(tokenID string) {
 	db := connectDb("tokens")
-	defer db.Close()
 	result := db.Where("token_id = ?", tokenID).Delete(&Token{})
 	if result.Error != nil {
 		log.Fatal(result.Error)
