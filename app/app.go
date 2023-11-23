@@ -19,7 +19,8 @@ import (
 	"golang.ngrok.com/ngrok"
 	"golang.ngrok.com/ngrok/config"
 
-	"DartMonkeyProject/config"
+	"DartMonkeyProject/common"
+	cnfg "DartMonkeyProject/config"
 	"DartMonkeyProject/serial"
 	"DartMonkeyProject/webcam"
 )
@@ -28,15 +29,14 @@ type Server struct {
 	IPv4          string         `json:"ipv4"`
 	Serial        *serial.Serial `json:"serial"`
 	Cameras       map[string]*webcam.Webcam
-	Config        config.Config `json:"config"`
+	Config        cnfg.Config `json:"config"`
 	Connections   map[*websocket.Conn]struct{}
 	Mu            sync.Mutex
 	System_States map[string]int `json:"system_states"`
 	Upgrader      websocket.Upgrader
 }
 
-
-func NewServer(config config.Config) *Server {
+func NewServer(config cnfg.Config) *Server {
 	serial := serial.Serial{}
 	cameras := make(map[string]*webcam.Webcam)
 	var upgrader = websocket.Upgrader{
@@ -176,7 +176,7 @@ func (s *Server) sendMessageToClientConnection(conn *websocket.Conn, sender, mes
 }
 
 func (s *Server) senderMessageToJsonBytes(sender, message string) []byte {
-	data := SenderMessage{
+	data := common.SenderMessage{
 		Sender:  sender,
 		Message: message,
 	}
@@ -241,7 +241,7 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 		line = re.ReplaceAllString(line, "%%%_")
 
 		// fmt.Printf("DEVICE: %v\n", line)
-		s.Serial.Buffer = append(s.Serial.Buffer, SenderMessage{"DEVICE", line})
+		s.Serial.Buffer = append(s.Serial.Buffer, common.SenderMessage{"DEVICE", line})
 		if strings.Contains(line, "%%%") {
 			s.updateStoredSystemState(line)
 			s.sendMessageToAllClientConnections("DEVICE", line)
@@ -250,8 +250,8 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 	}
 }
 
-func (s *Server) SystemInfo() SystemInfo {
-	return SystemInfo{
+func (s *Server) SystemInfo() common.SystemInfo {
+	return common.SystemInfo{
 		IPv4:              s.IPv4,
 		SystemStates:      s.System_States,
 		PortPath:          s.Serial.Port_Path,
