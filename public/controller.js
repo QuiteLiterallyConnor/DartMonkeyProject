@@ -32,6 +32,7 @@ $(document).ready(function() {
     ws.onclose = function() {
         console.log('WebSocket connection closed');
         clearInterval(intervalID);
+        window.location.href = '/';
     };
 
     $("#livestreamMainCamera").attr("src", livestreamLocation + "Targetting_Main");

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -13,16 +14,38 @@ import (
 
 // Token struct
 type Token struct {
-	ID           uint      `gorm:"primaryKey;autoIncrement"` // Unique ID field
-	Created_Time time.Time `json:"created_time" gorm:"created_time not null"`
-	Used_Time    time.Time `json:"used_time" gorm:"used_time not null"`
-	TokenID      string    `json:"tokenid" gorm:"tokenid not null"`
-	IsUsed       bool      `json:"isused" gorm:"isused not null"`
+	ID              uint      `gorm:"primaryKey;autoIncrement"`
+	Created_Time    time.Time `json:"created_time" gorm:"created_time not null"`
+	Used_Time       time.Time `json:"used_time" gorm:"used_time not null"`
+	TokenID         string    `json:"token_id" gorm:"token_id not null"`
+	IsUsed          bool      `json:"is_used" gorm:"is_used not null"`
+	SessionDuration int64     `json:"session_duration" gorm:"session_duration not null"`
 }
 
 func main() {
+	// Define flags
+	addFlag := flag.Bool("add", false, "Add a new token")
+	removeFlag := flag.String("remove", "", "Remove a token with the specified ID")
+	listFlag := flag.Bool("list", false, "List all tokens")
+
+	// Parse the flags
+	flag.Parse()
+
 	db := connectDb("tokens")
 
+	// Handle flags
+	if *addFlag {
+		addToken(db)
+	} else if *removeFlag != "" {
+		removeToken(db, *removeFlag)
+	} else if *listFlag {
+		printTokens(db)
+	} else {
+		fmt.Println("No valid operation specified. Use 'add', 'remove', or 'list'.")
+	}
+}
+
+func addToken(db *gorm.DB) {
 	token := Token{Created_Time: time.Now(), Used_Time: time.Now(), TokenID: generateRandomString(), IsUsed: false}
 
 	result := db.Create(&token)
@@ -77,17 +100,11 @@ func removeToken(db *gorm.DB, tokenID string) {
 	log.Printf("Tokens with TokenID '%s' removed from the database.\n", tokenID)
 }
 
-func getStoredTokens(db *gorm.DB) (t []string) {
-	var tokens []Token
-	result := db.Find(&tokens)
+func getStoredTokens(db *gorm.DB) (t []Token) {
+	result := db.Find(&t)
 	if result.Error != nil {
 		log.Fatal(result.Error)
 	}
-
-	for _, token := range tokens {
-		t = append(t, token.TokenID)
-	}
-
 	return
 }
 

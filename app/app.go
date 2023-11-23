@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -31,14 +30,15 @@ import (
 )
 
 type Server struct {
-	IPv4          string         `json:"ipv4"`
-	Serial        *serial.Serial `json:"serial"`
-	Cameras       map[string]*webcam.Webcam
-	Config        cnfg.Config `json:"config"`
-	Connections   map[*websocket.Conn]struct{}
-	Mu            sync.Mutex
-	System_States map[string]int `json:"system_states"`
-	Upgrader      websocket.Upgrader
+	Serial              *serial.Serial `json:"serial"`
+	Cameras             map[string]*webcam.Webcam
+	Config              cnfg.Config `json:"config"`
+	Connections         map[*websocket.Conn]struct{}
+	Mu                  sync.Mutex
+	System_States       map[string]int `json:"system_states"`
+	Upgrader            websocket.Upgrader
+	TokenUsage          map[string]time.Time
+	WebSocketStartTimes map[*websocket.Conn]time.Time
 }
 
 func NewServer(config cnfg.Config) *Server {
@@ -51,36 +51,34 @@ func NewServer(config cnfg.Config) *Server {
 	}
 
 	s := &Server{
-		Serial:        &serial,
-		Cameras:       cameras,
-		Config:        config,
-		Connections:   make(map[*websocket.Conn]struct{}),
-		System_States: make(map[string]int),
-		Upgrader:      upgrader,
+		Serial:              &serial,
+		Cameras:             cameras,
+		Config:              config,
+		Connections:         make(map[*websocket.Conn]struct{}),
+		System_States:       make(map[string]int),
+		Upgrader:            upgrader,
+		TokenUsage:          make(map[string]time.Time),
+		WebSocketStartTimes: make(map[*websocket.Conn]time.Time),
 	}
-
-	s.IPv4 = s.getLocalIP()
 
 	return s
 }
 
-func (s *Server) getLocalIP() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		fmt.Printf("ERR: Failed to get local server ip address\n")
-		return "Unknown"
-	}
-	for _, addr := range addrs {
-		ip, _, err := net.ParseCIDR(addr.String())
-		if err != nil {
-			continue
+func (s *Server) closeExpiredWebSockets() {
+	ticker := time.NewTicker(5 * time.Second) // Check every 5 seconds
+	for {
+		select {
+		case <-ticker.C:
+			s.Mu.Lock()
+			for conn, startTime := range s.WebSocketStartTimes {
+				if time.Since(startTime) > 30*time.Second {
+					conn.Close() // Close the WebSocket connection
+					delete(s.WebSocketStartTimes, conn)
+				}
+			}
+			s.Mu.Unlock()
 		}
-		ipv4 := ip.To4()
-		if ipv4 != nil && !ipv4.IsLoopback() && !ipv4.IsGlobalUnicast() && !ipv4.IsUnspecified() {
-			return ipv4.String()
-		}
 	}
-	return "Unknown"
 }
 
 func (s *Server) handleWebSocket(c *gin.Context) {
@@ -89,6 +87,11 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 		fmt.Println("Upgrade error:", err)
 		return
 	}
+
+	s.Mu.Lock()
+	s.WebSocketStartTimes[conn] = time.Now()
+	s.Mu.Unlock()
+
 	defer func() {
 		s.Mu.Lock()
 		delete(s.Connections, conn)
@@ -257,7 +260,6 @@ func (s *Server) listenToArduino(conn *websocket.Conn) {
 
 func (s *Server) SystemInfo() common.SystemInfo {
 	return common.SystemInfo{
-		IPv4:              s.IPv4,
 		SystemStates:      s.System_States,
 		PortPath:          s.Serial.Port_Path,
 		IsConnected:       s.Serial.IsConnected,
@@ -303,8 +305,24 @@ func (s *Server) AuthRequired() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
+		// Check if token is expired
+		token := c.GetHeader("X-Auth-Token") // Assuming token is sent in header
+		if !s.isTokenUnused(token) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token expired"})
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
+}
+
+func (s *Server) isTokenUnused(token string) bool {
+	if usageTime, exists := s.TokenUsage[token]; exists {
+		return time.Since(usageTime) < 30*time.Second
+	}
+	return true
 }
 
 func (s *Server) ServeHTML() {
@@ -331,6 +349,8 @@ func (s *Server) ServeHTML() {
 		s.handleWebSocket(c)
 	})
 
+	go s.closeExpiredWebSockets()
+
 	r.GET("/controller/stream", s.AuthRequired(), func(c *gin.Context) {
 		deviceName := c.Query("d")
 		if deviceName == "" {
@@ -349,13 +369,12 @@ func (s *Server) ServeHTML() {
 	r.POST("/submit-token", func(c *gin.Context) {
 		token := c.PostForm("token")
 
-		if isValidToken(token) {
-			// Set cookie or session
+		if isValidToken(token) && s.isTokenUnused(token) {
+			s.TokenUsage[token] = time.Now()
 			c.SetCookie("auth", "true", 3600, "/", "", false, true)
 			c.Redirect(http.StatusFound, "/controller")
-			useToken(token)
 		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 		}
 	})
 
@@ -366,11 +385,12 @@ func (s *Server) ServeHTML() {
 }
 
 type Token struct {
-	ID           uint      `gorm:"primaryKey;autoIncrement"`
-	Created_Time time.Time `json:"created_time" gorm:"created_time not null"`
-	Used_Time    time.Time `json:"used_time" gorm:"used_time not null"`
-	TokenID      string    `json:"tokenid" gorm:"tokenid not null"`
-	IsUsed       bool      `json:"isused" gorm:"isused not null"`
+	ID              uint      `gorm:"primaryKey;autoIncrement"`
+	Created_Time    time.Time `json:"created_time" gorm:"created_time not null"`
+	Used_Time       time.Time `json:"used_time" gorm:"used_time not null"`
+	TokenID         string    `json:"token_id" gorm:"token_id not null"`
+	IsUsed          bool      `json:"is_used" gorm:"is_used not null"`
+	SessionDuration int64     `json:"session_duration" gorm:"session_duration not null"`
 }
 
 func useToken(token string) {
