@@ -35,8 +35,8 @@ $(document).ready(function() {
         window.location.href = '/';
     };
 
-    $("#livestreamMainCamera").attr("src", livestreamLocation + "Targetting_Main");
-    $("#livestreamSecondaryCamera").attr("src", livestreamLocation + "Secondary");
+    $("#livestreamMainCamera").attr("src", livestreamLocation + "main");
+    $("#livestreamSecondaryCamera").attr("src", livestreamLocation + "secondary");
 
 
     let lastHeartbeatTime = Date.now();

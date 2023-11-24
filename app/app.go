@@ -351,20 +351,23 @@ func (s *Server) ServeHTML() {
 
 	go s.closeExpiredWebSockets()
 
-	r.GET("/controller/stream", s.AuthRequired(), func(c *gin.Context) {
-		deviceName := c.Query("d")
-		if deviceName == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Device name is required"})
-			return
-		}
-		webcam, ok := s.Cameras[deviceName]
-		if !ok {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
-			return
-		}
+	r.GET("/controller/stream/main", s.Cameras["Targetting_Main"].Stream)
+	r.GET("/controller/stream/secondary", s.Cameras["Secondary"].Stream)
 
-		webcam.Stream(c)
-	})
+	// r.GET("/controller/stream", s.AuthRequired(), func(c *gin.Context) {
+	// 	deviceName := c.Query("d")
+	// 	if deviceName == "" {
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Device name is required"})
+	// 		return
+	// 	}
+	// 	webcam, ok := s.Cameras[deviceName]
+	// 	if !ok {
+	// 		c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+	// 		return
+	// 	}
+
+	// 	webcam.Stream(c)
+	// })
 
 	r.POST("/submit-token", func(c *gin.Context) {
 		token := c.PostForm("token")

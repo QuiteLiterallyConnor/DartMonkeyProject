@@ -23,7 +23,7 @@ type Token struct {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("No valid operation specified. Use 'add', 'remove [tokenID]', 'list', or 'clean'.")
+		fmt.Println("No valid operation specified. Use 'new', 'remove [tokenID]', 'list', or 'clean'.")
 		return
 	}
 
@@ -31,8 +31,8 @@ func main() {
 	db := connectDb("tokens")
 
 	switch command {
-	case "add":
-		addToken(db)
+	case "new":
+		newToken(db)
 	case "remove":
 		if len(os.Args) < 3 {
 			fmt.Println("Please specify a token ID to remove.")
@@ -56,7 +56,7 @@ func cleanDb(db *gorm.DB) {
 	fmt.Println("All tables removed from the database.")
 }
 
-func addToken(db *gorm.DB) {
+func newToken(db *gorm.DB) {
 	token := Token{Created_Time: time.Now(), Used_Time: time.Now(), TokenID: generateRandomString(), IsUsed: false}
 
 	result := db.Create(&token)
