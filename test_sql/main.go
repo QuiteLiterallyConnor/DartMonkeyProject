@@ -23,7 +23,7 @@ type Token struct {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("No valid operation specified. Use 'add', 'remove [tokenID]', or 'list'.")
+		fmt.Println("No valid operation specified. Use 'add', 'remove [tokenID]', 'list', or 'clean'.")
 		return
 	}
 
@@ -42,9 +42,18 @@ func main() {
 		removeToken(db, tokenID)
 	case "list":
 		printTokens(db)
+	case "clean":
+		cleanDb(db)
 	default:
-		fmt.Println("Invalid operation specified. Use 'add', 'remove [tokenID]', or 'list'.")
+		fmt.Println("Invalid operation specified. Use 'add', 'remove [tokenID]', 'list', or 'clean'.")
 	}
+}
+
+func cleanDb(db *gorm.DB) {
+	if err := db.Migrator().DropTable(&Token{}); err != nil {
+		log.Fatalf("Failed to clean database: %v", err)
+	}
+	fmt.Println("All tables removed from the database.")
 }
 
 func addToken(db *gorm.DB) {
