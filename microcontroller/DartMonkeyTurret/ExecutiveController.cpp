@@ -169,7 +169,7 @@ void ExecutiveController::handleCommand(const std::string& cmd) {
 }
 
 void ExecutiveController::Reset() {
-  SCB_AIRCR = 0x05FA0004; // Write a value to Application Interrupt and Reset Control Register
+  esp_restart();  // Use ESP32's restart function to reset the system
 }
 
 int ExecutiveController::loadConfig() {
@@ -208,7 +208,7 @@ int ExecutiveController::loadConfig() {
 const char* ExecutiveController::getConfigJsonString() {
     return R"json(
     {
-      "X_SERVO": { "pin": 2, "speed": 30, "starting_angle": 60, "angle_limit": 120, "interpolation": "ease" },
+      "X_SERVO": { "pin": 32, "speed": 30, "starting_angle": 60, "angle_limit": 120, "interpolation": "ease" },
       "Y_SERVO": { "pin": 4, "speed": 50, "starting_angle": 45, "angle_limit": 100, "interpolation": "ease" },
       "MOTOR_A_SERVO": { "pin": 6, "speed": 50, "starting_angle": 0, "angle_limit": 25, "interpolation": "linear" },
       "MOTOR_B_SERVO": { "pin": 8, "speed": 50, "starting_angle": 20, "angle_limit": 25, "interpolation": "linear" },

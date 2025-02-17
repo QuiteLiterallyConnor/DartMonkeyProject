@@ -1,16 +1,6 @@
 #include "SerialController.h"
 
 volatile bool blink = false;
-void blink_thread() {
-  while (1) {
-    if (blink) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(100);
-      digitalWrite(LED_BUILTIN, LOW);
-      blink = false;
-    }
-  }
-}
 
 void blinkLED() {
   blink = true;
@@ -18,7 +8,7 @@ void blinkLED() {
 
 void SerialController::initialize(std::map<std::string, SerialController::Command> cmdMap) {
   commandMap = cmdMap;
-  threads.addThread(blink_thread, 0);
+  
   std::string tmp = "%%%_INFO:EXECUTIVE_CONTROLLER:Finished init";
   Serial.println(tmp.c_str());
 }

@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <ArduinoJson.h>
 #include <Arduino.h>
-#include <avr/pgmspace.h>
 #include <cstdlib>
 #include <ctime>
 #include <functional>
@@ -13,8 +12,9 @@
 #include <map>
 #include <string>
 #include <stdint.h>
-#include <TimeLib.h>
+#include <ESP32Time.h>  
 #include <vector>
+#include "esp_system.h"
 
 #include "SerialController.h"
 #include "ServoController.h"
@@ -28,11 +28,15 @@
 #define ROTOR_CONTROL_MOTOR_1_PIN 7
 #define ROTOR_CONTROL_MOTOR_2_PIN 8
 
+// Remove AVR-specific include for ESP32
+#if defined(ARDUINO_ARCH_AVR)
+#include <avr/pgmspace.h>
+#endif
+
 void adam();
 void handleReceivedTinyIRData(uint16_t aAddress, uint8_t aButton, bool isRepeat);
 void init_controllers();
 std::map<std::string, SerialController::Command> initSerialCmdMap();
-
 
 struct DateTime {
     int Year;
@@ -43,11 +47,8 @@ struct DateTime {
     int Second;
 };
 
-
-
 class ExecutiveController {
 public:
-
     int initialize();
     void Reset();
     std::string GetSessionKey();

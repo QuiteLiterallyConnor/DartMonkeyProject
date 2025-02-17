@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <ArduinoJson.h>
 #include <Arduino.h>
-#include <avr/pgmspace.h>
 #include <cstdlib>
 #include <ctime>
 #include <functional>
@@ -15,7 +14,14 @@
 #include <stdint.h>
 #include <TimeLib.h>
 #include <vector>
-#include <TeensyThreads.h>
+
+// Remove TeensyThreads.h since it’s not available for ESP32
+// #include <TeensyThreads.h>
+
+// Remove AVR-specific include for ESP32
+#if defined(ARDUINO_ARCH_AVR)
+#include <avr/pgmspace.h>
+#endif
 
 class SerialController {
 public:
