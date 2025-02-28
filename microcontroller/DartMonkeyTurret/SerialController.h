@@ -15,14 +15,6 @@
 #include <TimeLib.h>
 #include <vector>
 
-// Remove TeensyThreads.h since it’s not available for ESP32
-// #include <TeensyThreads.h>
-
-// Remove AVR-specific include for ESP32
-#if defined(ARDUINO_ARCH_AVR)
-#include <avr/pgmspace.h>
-#endif
-
 class SerialController {
 public:
 

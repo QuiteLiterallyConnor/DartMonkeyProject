@@ -1,10 +1,5 @@
 #include "SerialController.h"
 
-volatile bool blink = false;
-
-void blinkLED() {
-  blink = true;
-}
 
 void SerialController::initialize(std::map<std::string, SerialController::Command> cmdMap) {
   commandMap = cmdMap;
@@ -31,7 +26,6 @@ void SerialController::processSerialInput() {
 
         inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\n'), inputBuffer.end());
         inputBuffer.erase(std::remove(inputBuffer.begin(), inputBuffer.end(), '\r'), inputBuffer.end());
-        blinkLED();
         Serial.flush();
 
         char *token = strtok(&inputBuffer[0], ";");

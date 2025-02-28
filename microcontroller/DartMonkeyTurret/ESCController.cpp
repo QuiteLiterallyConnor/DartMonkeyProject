@@ -16,7 +16,7 @@ void ESCController::initialize(std::string n, StaticJsonDocument<1024> config) {
 
 void ESCController::sync() {
   controller.writeMicroseconds(IDLE_PWM);
-  delay(3000);
+  delay(500);
   controller.writeMicroseconds(STOP_PWM);
 }
 

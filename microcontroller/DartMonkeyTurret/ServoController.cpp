@@ -18,7 +18,6 @@ void ServoController::initialize(std::string n, StaticJsonDocument<1024> config)
   }
 
   setAngle(startingAngle);
-  delay(500);
   std::string tmp;
   tmp += "%%%_INFO:";
   tmp += name;
