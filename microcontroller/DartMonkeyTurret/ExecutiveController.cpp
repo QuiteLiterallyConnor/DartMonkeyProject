@@ -1,82 +1,69 @@
 #include "ExecutiveController.h"
 
-ExecutiveController executiveController;
 SerialController serialController;
-ESCController motorAController;
-ESCController motorBController;
-ServoController xRotationController;
-ServoController yRotationController;
-ServoController motorAServoController;
-ServoController motorBServoController;
 
-void adam() {
-
-  serialController.handleSerial();
-  executiveController.ExecuteSerialCommands();
-
+int ExecutiveController::Init() {
+  serialController.Init();
+  std::string tmp = "%%%_INFO: EXECUTIVE CONTROLLER: STARTING SETUP";
+  Serial.println(tmp.c_str());
+  loadDevices();
+  tmp = "%%%_INFO: EXECUTIVE CONTROLLER: FINISHED SETUP";
+  Serial.println(tmp.c_str());
+  return 0;
 }
 
-void init_controllers() {
-  if (executiveController.initialize()) {
-    std::string tmp = "%%%_ERR:EXEC_CONTROLLER:INIT_FAILED";
-    Serial.println(tmp.c_str());
+void ExecutiveController::GetCommands() {
+  serialController.ReadSerial();
+}
+
+void ExecutiveController::ExecuteCommands() {
+    std::vector<std::string> cmds;
+    if (!serialController.GetCommandBuffer(cmds)) {
+        return;
+    }
+
+    for (const std::string& cmd : cmds) {
+        if (!isValidCommand(cmd)) {
+            std::string error_msg = "%%%_ERR:INVALID_CMD:" + cmd;
+            Serial.println(error_msg.c_str());
+            continue;
+        }
+        handleCommand(cmd);
+    }
+}
+
+void ExecutiveController::loadDevices() {
+  const char* jsonString = getConfigJsonString();
+  DeserializationError error = deserializeJson(doc, jsonString);
+
+  if (error) {
+      Serial.println("%%%_ERR:INVALID_CONFIG");
+      return;
   }
 
-  serialController.initialize(initSerialCmdMap());
+  for (JsonObject servo : doc["servos"].as<JsonArray>()) {
+      std::string enumKey = servo["enum"].as<std::string>();
+      servoControllers[enumKey].Init(servo);
+  }
 
-  
+  for (JsonObject motor : doc["motors"].as<JsonArray>()) {
+      std::string enumKey = motor["enum"].as<std::string>();
+      escControllers[enumKey].Init(motor);
+  }
 }
 
-std::map<std::string, SerialController::Command> initSerialCmdMap() {
-      return {
-        {"X",  {"X axis",                         [&](std::string cmd) { xRotationController.handleGcodeCommand(cmd);            return true;  }}},
-        {"Y",  {"Y axis",                         [&](std::string cmd) { yRotationController.handleGcodeCommand(cmd);            return true;  }}},
-        {"A",  {"A motor servo",                  [&](std::string cmd) { motorAServoController.handleGcodeCommand(cmd);          return false; }}},
-        {"B",  {"B motor servo",                  [&](std::string cmd) { motorBServoController.handleGcodeCommand(cmd);          return false; }}},
-        {"C",  {"A motor",                        [&](std::string cmd) { motorAController.handleGcodeCommand(cmd);               return true;  }}},                                                    
-        {"D",  {"B motor",                        [&](std::string cmd) { motorBController.handleGcodeCommand(cmd);               return true;  }}},
-    };
+void ExecutiveController::handleCommand(const std::string& cmd) {
+  std::string label = cmd.substr(0, 1);
+  std::string stdcmd = cmd;
+
+  if (servoControllers.find(label) != servoControllers.end()) {
+      servoControllers[label].handleGcodeCommand(stdcmd);
+  } else if (escControllers.find(label) != escControllers.end()) {
+      escControllers[label].handleGcodeCommand(stdcmd);
+  } else {
+      Serial.print("%%%_ERR:INVALID_COMMAND:Command not found");
+  }
 }
-
-
-int ExecutiveController::initialize() {
-    std::string tmp = "%%%_INFO: EXECUTIVE CONTROLLER: STARTING SETUP";
-    Serial.println(tmp.c_str());
-
-    if (loadConfig()) {
-      Serial.println("%%%_ERR:INVALID_CONFIG");
-      return 1;
-    }
-
-    tmp = "%%%_INFO: EXECUTIVE CONTROLLER: FINISHED SETUP";
-    Serial.println(tmp.c_str());
-    return 0;
-}
-
-
-void ExecutiveController::ExecuteSerialCommands() {
-    std::vector<std::string> cmds;
-
-    if (serialController.commandBuffer.empty()) {
-      return;
-    } else {
-        cmds = serialController.commandBuffer;
-        serialController.commandBuffer.clear();
-
-        for (const std::string& cmd : cmds) {
-            if (!isValidCommand(cmd)) {
-                std::string error_msg = "%%%_ERR:INVALID_CMD:" + cmd;
-                Serial.println(error_msg.c_str());
-            } else {
-                handleCommand(cmd);
-            }
-        }
-
-
-    }
-
-}
-
 
 bool ExecutiveController::isValidCommand(const std::string& cmd) {
     if (cmd.empty()) return false;
@@ -92,9 +79,8 @@ bool ExecutiveController::isValidCommand(const std::string& cmd) {
         return false;
     }
 
-    std::map<std::string, SerialController::Command> cmdMap = serialController.commandMap;
-
-    if (cmdMap.find(std::string(1, commandType)) == cmdMap.end()) {
+    if (servoControllers.find(std::string(1, commandType)) == servoControllers.end() &&
+        escControllers.find(std::string(1, commandType)) == escControllers.end()) {
         Serial.print("%%%_ERR:INVALID_COMMAND:Command not found");
         return false;
     }
@@ -108,54 +94,62 @@ bool ExecutiveController::isValidCommand(const std::string& cmd) {
         }
     }
 
-    // int value = std::stoi(valueString);
-
     return true;
 }
 
-void ExecutiveController::handleCommand(const std::string& cmd) {
-    std::string label = cmd.substr(0, 1);
-    std::string stdcmd = cmd;
-    std::map<std::string, SerialController::Command> commandMap = serialController.commandMap;
-    SerialController::Command& command = commandMap[label];
-    command.action(stdcmd);
-}
-
-void ExecutiveController::Reset() {
-  esp_restart();  // Use ESP32's restart function to reset the system
-}
-
-int ExecutiveController::loadConfig() {
-    const char* jsonString = getConfigJsonString();
-    DeserializationError error = deserializeJson(doc, jsonString);
-
-    if (error) {
-      return 1;
-    }
-
-    xRotationController.initialize("X_SERVO", doc["X_SERVO"]);
-    yRotationController.initialize("Y_SERVO", doc["Y_SERVO"]);
-    motorAServoController.initialize("MOTOR_A_SERVO", doc["MOTOR_A_SERVO"]);
-    motorBServoController.initialize("MOTOR_B_SERVO", doc["MOTOR_B_SERVO"]);
-    motorAController.initialize("MOTOR_A", doc["MOTOR_A"]);
-    motorBController.initialize("MOTOR_B", doc["MOTOR_B"]);
-
-    return 0;
-}
-
-
 const char* ExecutiveController::getConfigJsonString() {
     return R"json(
-    {
-      "X_SERVO": { "pin": 32, "speed": 30, "starting_angle": 60, "angle_limit": 120, "interpolation": "ease" },
-      "Y_SERVO": { "pin": 4, "speed": 50, "starting_angle": 45, "angle_limit": 100, "interpolation": "ease" },
-      "MOTOR_A_SERVO": { "pin": 6, "speed": 50, "starting_angle": 0, "angle_limit": 25, "interpolation": "linear" },
-      "MOTOR_B_SERVO": { "pin": 8, "speed": 50, "starting_angle": 20, "angle_limit": 25, "interpolation": "linear" },
-      "MOTOR_A": { "pin": 10, "reversed": "true" },
-      "MOTOR_B": { "pin": 15, "reversed": "false" },
-      "MOTOR_A_RELAY": { "pin": 17 },
-      "MOTOR_B_RELAY": { "pin": 19 }
+      {
+        "servos": [
+            {
+                "name": "X_AXIS_SERVO",
+                "enum": "X",
+                "pin": 1,
+                "speed": 50,
+                "min": 100,
+                "max": 180,
+                "start": 140,
+                "interpolation": "ease"
+            },
+            {
+                "name": "Y_AXIS_SERVO",
+                "enum": "Y",
+                "pin": 2,
+                "speed": 50,
+                "min": 0,
+                "max": 180,
+                "start": 90,
+                "interpolation": "ease"
+            },
+            {
+                "name": "A_MOTOR_SERVO",
+                "enum": "A",
+                "pin": 3,
+                "speed": 50,
+                "min": 0,
+                "max": 180,
+                "start": 90,
+                "interpolation": "linear"
+            },
+            {
+                "name": "B_MOTOR_SERVO",
+                "enum": "B",
+                "pin": 4,
+                "speed": 50,
+                "min": 0,
+                "max": 180,
+                "start": 90,
+                "interpolation": "linear"
+            }
+        ],
+        "motors": [
+            {
+                "name": "MOTOR_A_B",
+                "enum": "C",
+                "pin": 3
+            }
+        ]
     }
     )json";
-}    
+}
 

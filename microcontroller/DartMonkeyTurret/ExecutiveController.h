@@ -19,21 +19,20 @@
 #include "ServoController.h"
 #include "ESCController.h"
 
-void adam();
-void init_controllers();
-std::map<std::string, SerialController::Command> initSerialCmdMap();
-
 class ExecutiveController {
 public:
-    int initialize();
-    void Reset();
-    void ExecuteSerialCommands();
+    int Init();
+    void GetCommands();
+    void ExecuteCommands();
+    
 private:
-    int loadConfig();
+    void loadDevices();
     const char* getConfigJsonString();
     bool isValidCommand(const std::string& cmd);
     void handleCommand(const std::string& cmd);
     StaticJsonDocument<1024> doc;
+    std::map<std::string, ServoController> servoControllers;
+    std::map<std::string, ESCController> escControllers;
 };
 
 #endif

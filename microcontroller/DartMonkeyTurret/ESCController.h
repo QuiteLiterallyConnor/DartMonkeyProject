@@ -12,7 +12,7 @@
 class ESCController {
 public:
     ESCController() {}
-    void initialize(std::string n, StaticJsonDocument<1024> config);
+    void Init(StaticJsonDocument<1024> config);
     void sync();
     void handleGcodeCommand(std::string cmd);
     int getCurrentSpeed() const;

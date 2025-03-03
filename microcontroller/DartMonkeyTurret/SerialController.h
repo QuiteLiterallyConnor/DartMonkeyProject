@@ -24,22 +24,15 @@ public:
     };
 
     SerialController() {}
-    void initialize(std::map<std::string, SerialController::Command> cmd);
-    void handleSerial();
+    void Init();
+    void ReadSerial();
     bool GetCommandBuffer(std::vector<std::string> &buf);
-    std::map<std::string, Command> GetCommandMap();
     std::vector<std::string> commandBuffer;
-    std::map<std::string, Command> commandMap;
 private:
     std::string inputBuffer;
     unsigned long lastCheckTime;
     const unsigned long checkInterval = 50;
-    void setupCommands();
     void processSerialInput();
-    void handleCommand(const std::string& cmd);
-    void handleMetaCommand(const std::string& cmd);
-    void wait(std::string cmd);
-    void initializeCommandMap();
 };
 
 #endif

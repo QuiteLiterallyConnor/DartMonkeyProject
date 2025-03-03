@@ -1,14 +1,14 @@
 #include "SerialController.h"
 
+void SerialController::Init() {
+    std::string tmp = "%%%_INFO: SERIAL CONTROLLER: STARTING SETUP";
+    Serial.println(tmp.c_str());
 
-void SerialController::initialize(std::map<std::string, SerialController::Command> cmdMap) {
-  commandMap = cmdMap;
-  
-  std::string tmp = "%%%_INFO:EXECUTIVE_CONTROLLER:Finished init";
-  Serial.println(tmp.c_str());
+    tmp = "%%%_INFO: SERIAL CONTROLLER: FINISHED SETUP";
+    Serial.println(tmp.c_str());
 }
 
-void SerialController::handleSerial() {
+void SerialController::ReadSerial() {
     if (millis() - lastCheckTime >= checkInterval) {
         processSerialInput();
         lastCheckTime = millis();
@@ -36,16 +36,15 @@ void SerialController::processSerialInput() {
             token = strtok(NULL, ";");
         }
 
-        inputBuffer = "";
+        inputBuffer.clear();
     }
 }
 
 bool SerialController::GetCommandBuffer(std::vector<std::string> &buf) {
     if (!commandBuffer.empty()) {
-        buf = commandBuffer;
+        buf = std::move(commandBuffer);
         commandBuffer.clear();
         return true;
-    } else {
-        return false;
     }
+    return false;
 }

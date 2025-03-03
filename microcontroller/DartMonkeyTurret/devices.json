@@ -1,0 +1,51 @@
+{
+    "servos": [
+        {
+            "name": "X_AXIS_SERVO",
+            "enum": "X",
+            "pin": 1,
+            "speed": 50,
+            "min": 100,
+            "max": 180,
+            "start": 140,
+            "interpolation": "ease"
+        },
+        {
+            "name": "Y_AXIS_SERVO",
+            "enum": "Y",
+            "pin": 2,
+            "speed": 50,
+            "min": 0,
+            "max": 180,
+            "start": 90,
+            "interpolation": "ease"
+        },
+        {
+            "name": "A_MOTOR_SERVO",
+            "enum": "A",
+            "pin": 3,
+            "speed": 50,
+            "min": 0,
+            "max": 180,
+            "start": 90,
+            "interpolation": "linear"
+        },
+        {
+            "name": "B_MOTOR_SERVO",
+            "enum": "B",
+            "pin": 4,
+            "speed": 50,
+            "min": 0,
+            "max": 180,
+            "start": 90,
+            "interpolation": "linear"
+        }
+    ],
+    "motors": [
+        {
+            "name": "MOTOR_A_B",
+            "enum": "C",
+            "pin": 3
+        }
+    ]
+}

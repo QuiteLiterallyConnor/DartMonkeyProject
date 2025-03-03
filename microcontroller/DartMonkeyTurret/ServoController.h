@@ -8,15 +8,10 @@
 #define SUPPRESS_HPP_WARNING
 #include "EasingLib.h"
 
-#if !defined(STR_HELPER)
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
-#endif
-
 class ServoController {
 public:
     ServoController() {}
-    void initialize(std::string n, StaticJsonDocument<1024> config);
+    void Init(StaticJsonDocument<1024> config);
     void handleGcodeCommand(std::string cmd);
     void changeAngle(int delta);
     void setAngle(int angle);
@@ -24,13 +19,13 @@ public:
     std::string getName();
 private:
   ServoEasing servo;
-  // Servo servo;
   std::string name;
   std::string interpolation;
   int servoPin;
   int speed = 100;
   int currentAngle = 0;
-  int angle_limit = 90;
+  int angle_min = 0;
+  int angle_max = 0;
   int startingAngle = 0;
   void print();
 };
