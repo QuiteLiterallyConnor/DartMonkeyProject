@@ -2205,25 +2205,7 @@ void synchronizeAndEaseToArrayPositions(uint_fast16_t aDegreesPerSecond) {
  * @param aSerial The Print object on which to write, for Arduino you can use &Serial.
  */
 void printArrayPositions(Print *aSerial) {
-//    uint_fast8_t tServoIndex = 0;
     aSerial->print(F("ServoNextPositionArray="));
-// AJ 22.05.2019 This does not work with GCC 7.3.0 atmel6.3.1 and -Os
-// It drops the tServoIndex < MAX_EASING_SERVOS condition, since  MAX_EASING_SERVOS is equal to the size of sServoArray
-// This has only an effect if the whole sServoArray is filled up, i.e we have declared MAX_EASING_SERVOS ServoEasing objects.
-//    while (ServoEasing::ServoEasingArray[tServoIndex] != NULL && tServoIndex < MAX_EASING_SERVOS) {
-//        aSerial->print(ServoEasingNextPositionArray[tServoIndex]);
-//        aSerial->print(F(" | "));
-//        tServoIndex++;
-//    }
-
-// switching conditions cures the bug
-//    while (tServoIndex < MAX_EASING_SERVOS && ServoEasing::ServoEasingArray[tServoIndex] != NULL) {
-
-// this also does not work
-//    for (uint_fast8_t tServoIndex = 0; ServoEasing::ServoEasingArray[tServoIndex] != NULL && tServoIndex < MAX_EASING_SERVOS  ; ++tServoIndex) {
-//        aSerial->print(ServoEasingNextPositionArray[tServoIndex]);
-//        aSerial->print(F(" | "));
-//    }
     for (uint_fast8_t tServoIndex = 0; tServoIndex <= ServoEasing::sServoArrayMaxIndex; ++tServoIndex) {
         aSerial->print(ServoEasing::ServoEasingNextPositionArray[tServoIndex]);
         aSerial->print(F(" | "));
@@ -2247,58 +2229,6 @@ void setSpeedForAllServos(uint_fast16_t aDegreesPerSecond) {
     }
 }
 
-#if defined(va_arg)
-/**
- * Sets the ServoEasingNextPositionArray[] of the first aNumberOfServos to the specified integer values
- */
-void setIntegerDegreeForAllServos(uint_fast8_t aNumberOfServos, va_list *aDegreeValues) {
-    for (uint_fast8_t tServoIndex = 0; tServoIndex < aNumberOfServos; ++tServoIndex) {
-        ServoEasing::ServoEasingNextPositionArray[tServoIndex] = va_arg(*aDegreeValues, int);
-    }
-}
-/**
- * Sets the ServoEasingNextPositionArray[] of the first aNumberOfServos to the specified float values
- */
-void setFloatDegreeForAllServos(uint_fast8_t aNumberOfServos, va_list *aDegreeValues) {
-    for (uint_fast8_t tServoIndex = 0; tServoIndex < aNumberOfServos; ++tServoIndex) {
-        ServoEasing::ServoEasingNextPositionArray[tServoIndex] = va_arg(*aDegreeValues, double);
-    }
-}
-#endif
-
-#if defined(va_start)
-/**
- * Sets the ServoEasingNextPositionArray[] of the first aNumberOfServos to the specified integer values
- */
-void setDegreeForAllServos(uint_fast8_t aNumberOfServos, ...) {
-    va_list aDegreeValues;
-    va_start(aDegreeValues, aNumberOfServos);
-    setIntegerDegreeForAllServos(aNumberOfServos, &aDegreeValues);
-    va_end(aDegreeValues);
-}
-
-void setIntegerDegreeForAllServos(uint_fast8_t aNumberOfServos, ...) {
-    va_list aDegreeValues;
-    va_start(aDegreeValues, aNumberOfServos);
-    setIntegerDegreeForAllServos(aNumberOfServos, &aDegreeValues);
-    va_end(aDegreeValues);
-}
-/**
- * Sets the ServoEasingNextPositionArray[] of the first aNumberOfServos to the specified float values
- */
-void setFloatDegreeForAllServos(uint_fast8_t aNumberOfServos, ...) {
-    va_list aDegreeValues;
-    va_start(aDegreeValues, aNumberOfServos);
-    setFloatDegreeForAllServos(aNumberOfServos, &aDegreeValues);
-    va_end(aDegreeValues);
-}
-#endif
-
-/**
- * Sets target position using content of ServoEasingNextPositionArray.
- * Does not start interrupt/movement!
- * @return false if one servo was still moving
- */
 bool setEaseToForAllServos() {
     bool tOneServoIsMoving = false;
     for (uint_fast8_t tServoIndex = 0; tServoIndex <= ServoEasing::sServoArrayMaxIndex; ++tServoIndex) {
@@ -2311,11 +2241,6 @@ bool setEaseToForAllServos() {
     return tOneServoIsMoving;
 }
 
-/**
- * Sets target position using content of ServoEasingNextPositionArray and use aDegreesPerSecond instead of the one stored in mSpeed.
- * Does not start interrupt/movement!
- * @return false if one servo was still moving
- */
 bool setEaseToForAllServos(uint_fast16_t aDegreesPerSecond) {
     bool tOneServoIsMoving = false;
     for (uint_fast8_t tServoIndex = 0; tServoIndex <= ServoEasing::sServoArrayMaxIndex; ++tServoIndex) {
@@ -2327,11 +2252,6 @@ bool setEaseToForAllServos(uint_fast16_t aDegreesPerSecond) {
     return tOneServoIsMoving;
 }
 
-/**
- * Sets target position using content of ServoEasingNextPositionArray and use aMillisForMove instead of the speed stored in mSpeed.
- * Does not start interrupt/movement!
- * @return false if one servo was still moving
- */
 bool setEaseToDForAllServos(uint_fast16_t aMillisForMove) {
     bool tOneServoIsMoving = false;
     for (uint_fast8_t tServoIndex = 0; tServoIndex <= ServoEasing::sServoArrayMaxIndex; ++tServoIndex) {
@@ -2468,19 +2388,6 @@ void synchronizeAllServosAndStartInterrupt(bool aStartUpdateByInterrupt) {
         }
     }
 
-#if defined(LOCAL_TRACE)
-    Serial.print(F("Number of servos="));
-    Serial.print(ServoEasing::sServoArrayMaxIndex);
-    Serial.print(F(" MillisAtStartMove="));
-    Serial.print(tMillisAtStartMove);
-    Serial.print(F(" MaxMillisForCompleteMove="));
-    Serial.println(tMaxMillisForCompleteMove);
-#endif
-
-    /*
-     * Set maximum duration and start time to all servos
-     * Synchronize start time to avoid race conditions at the end of movement
-     */
     for (uint_fast8_t tServoIndex = 0; tServoIndex <= ServoEasing::sServoArrayMaxIndex; ++tServoIndex) {
         if (ServoEasing::ServoEasingArray[tServoIndex] != NULL && ServoEasing::ServoEasingArray[tServoIndex]->mServoMoves) {
             ServoEasing::ServoEasingArray[tServoIndex]->mMillisAtStartMove = tMillisAtStartMove;
@@ -2494,17 +2401,6 @@ void synchronizeAllServosAndStartInterrupt(bool aStartUpdateByInterrupt) {
 }
 
 #if !defined(PROVIDE_ONLY_LINEAR_MOVEMENT)
-/*********************************************************
- * Included easing functions
- * Input is from 0.0 to 1.0 with 0.0 -> 0 % and 1.0 -> 100% completion of time between the two endpoints
- * Output is from 0.0 to 1.0 with: 0.0 -> 0 % and 1.0 -> 100% completion of movement (e.g. 1.1 is 10% overshot)
- ********************************************************/
-//float (*sEaseFunctionArray[])(
-//        float aFactorOfTimeCompletion) = {&QuadraticEaseIn, &CubicEaseIn, &QuarticEaseIn, &SineEaseIn, &CircularEaseIn, &BackEaseIn, &ElasticEaseIn,
-//            &EaseOutBounce};
-/**
- * The simplest non linear easing function
- */
 float ServoEasing::QuadraticEaseIn(float aFactorOfTimeCompletion) {
     return (aFactorOfTimeCompletion * aFactorOfTimeCompletion);
 }
@@ -2517,36 +2413,19 @@ float ServoEasing::QuarticEaseIn(float aFactorOfTimeCompletion) {
     return QuadraticEaseIn(QuadraticEaseIn(aFactorOfTimeCompletion));
 }
 
-/**
- * Take half of negative cosines of first quadrant
- * Is behaves almost like QUADRATIC
- */
 float ServoEasing::SineEaseIn(float aFactorOfTimeCompletion) {
     return sin((aFactorOfTimeCompletion - 1) * M_PI_2) + 1;
 }
 
-/**
- * It is very fast in the middle!
- * see: https://easings.net/#easeInOutCirc
- * and https://github.com/warrenm/AHEasing/blob/master/AHEasing/easing.c
- */
 float ServoEasing::CircularEaseIn(float aFactorOfTimeCompletion) {
     return 1 - sqrt(1 - (aFactorOfTimeCompletion * aFactorOfTimeCompletion));
 }
 
-/**
- * see: https://easings.net/#easeInOutBack
- * and https://github.com/warrenm/AHEasing/blob/master/AHEasing/easing.c
- */
 float ServoEasing::BackEaseIn(float aFactorOfTimeCompletion) {
     return (aFactorOfTimeCompletion * aFactorOfTimeCompletion * aFactorOfTimeCompletion)
             - (aFactorOfTimeCompletion * sin(aFactorOfTimeCompletion * M_PI));
 }
 
-/**
- * see: https://easings.net/#easeInOutElastic
- * and https://github.com/warrenm/AHEasing/blob/master/AHEasing/easing.c
- */
 float ServoEasing::ElasticEaseIn(float aFactorOfTimeCompletion) {
     return sin(13 * M_PI_2 * aFactorOfTimeCompletion) * pow(2, 10 * (aFactorOfTimeCompletion - 1));
 }
@@ -2558,13 +2437,6 @@ float ServoEasing::ElasticEaseIn(float aFactorOfTimeCompletion) {
 #define OVERSHOOT_AMOUNT_MILLIS         50 // around 5 degree
 #define OVERSHOOT_AMOUNT_UNITS          10 // around 5 degree
 
-/**
- * PRECISION (LinearWithQuadraticBounce) is like linear, but adds a 5 degree bounce in the last 20 % of the movement time at one direction.
- * So the target position is always approached from one side. This enables it to taken out the slack/backlash of any hardware moved by the servo.
- * IN = Negative bounce for movings from above (go in to origin)
- * OUT = Positive bounce for movings from below (go out from origin) we are called with 1.0 to 0.0
- * @return For non bounce phase of movement, return float value. For bouncing phase, return microseconds or units.
- */
 float ServoEasing::LinearWithQuadraticBounce(float aFactorOfTimeCompletion) {
     if (((mEasingType & CALL_STYLE_OUT) && mDeltaMicrosecondsOrUnits < 0)
             || ((mEasingType & CALL_STYLE_OUT) == 0 && mDeltaMicrosecondsOrUnits >= 0)) {
@@ -2575,10 +2447,6 @@ float ServoEasing::LinearWithQuadraticBounce(float aFactorOfTimeCompletion) {
             aFactorOfTimeCompletion = 1 - aFactorOfTimeCompletion; // reverse the reverse calling :-) so we have from 0.0 to 1.0
         }
 
-        /*
-         * We are approaching from the direction, which requires a bounce.
-         * Use scaled linear moving the first 80 % of the movement, and add a quadratic bounce for the remaining 20%.
-         */
         if (aFactorOfTimeCompletion < PART_OF_LINEAR_MOVEMENT) {
             // The linear part, return scaled up float aFactorOfTimeCompletion
             aFactorOfTimeCompletion = aFactorOfTimeCompletion * (1.0 / PART_OF_LINEAR_MOVEMENT);
@@ -2588,9 +2456,6 @@ float ServoEasing::LinearWithQuadraticBounce(float aFactorOfTimeCompletion) {
             return aFactorOfTimeCompletion; // for IN function, return plain factor
 
         } else {
-            /*
-             * The bounce for the IN function (aFactorOfTimeCompletion from 0.8 to 1.0)
-             */
             float tRemainingFactor;
             if (aFactorOfTimeCompletion < (1.0 - PART_OF_BOUNCE_MOVEMENT_HALF)) {
                 // Between 80 % and 90 % here. Starting part of the overshoot bounce
@@ -2636,11 +2501,6 @@ float ServoEasing::LinearWithQuadraticBounce(float aFactorOfTimeCompletion) {
     }
 }
 
-/**
- * !!! ATTENTION !!! we have only the out function implemented
- * see: https://easings.net/de#easeOutBounce
- * and https://github.com/warrenm/AHEasing/blob/master/AHEasing/easing.c
- */
 float ServoEasing::EaseOutBounce(float aFactorOfTimeCompletion) {
     float tFactorOfMovementCompletion;
     if (aFactorOfTimeCompletion < 4 / 11.0) {
@@ -2659,94 +2519,6 @@ float ServoEasing::EaseOutBounce(float aFactorOfTimeCompletion) {
 }
 #endif // !defined(PROVIDE_ONLY_LINEAR_MOVEMENT)
 
-/************************************
- * Convenience I2C check function
- * One version as class methods and one version as static function
- ***********************************/
-#if defined(USE_PCA9685_SERVO_EXPANDER)
-/**
- * Check if I2C communication is possible. If not, we will wait forever at endTransmission.
- * 0x40 is default PCA9685 address
- * @param aSerial The Print object on which to write, for Arduino you can use &Serial.
- * @return true if error happened, i.e. device is not attached at this address.
- */
-#if defined(__AVR__)
-bool ServoEasing::InitializeAndCheckI2CConnection(Print *aSerial) // Print instead of Stream saves 95 bytes flash
-#else
-bool ServoEasing::InitializeAndCheckI2CConnection(Stream *aSerial) // Print has no flush()
-#endif
-        {
-#if !defined(USE_SOFT_I2C_MASTER)
-    // Initialize wire before checkI2CConnection()
-    I2CInit();
-#endif
-    return checkI2CConnection(mPCA9685I2CAddress, aSerial);
-}
-
-#if defined(__AVR__)
-bool checkI2CConnection(uint8_t aI2CAddress, Print *aSerial) // Print instead of Stream saves 95 bytes flash
-#else
-bool checkI2CConnection(uint8_t aI2CAddress, Stream *aSerial) // Print has no flush(), so we must take Stream
-#endif
-        {
-
-    bool tRetValue = false;
-    aSerial->print(F("Try to communicate with I2C device at address=0x"));
-    aSerial->println(aI2CAddress, HEX);
-    aSerial->flush();
-
-    // Initialize wire
-#if defined(USE_SOFT_I2C_MASTER)
-    if(i2c_init()){
-        if(!i2c_start(aI2CAddress << 1)){
-            aSerial->println(F("No acknowledge received from the slave"));
-            aSerial->print(F("Communication with I2C was successful, but found no"));
-            tRetValue = true;
-        } else {
-            aSerial->print(F("Found"));
-        }
-        i2c_stop();
-        aSerial->print(F(" I2C device attached at address: 0x"));
-        aSerial->println(aI2CAddress, HEX);
-    } else {
-        aSerial->println(F("I2C init failed"));
-    }
-#else // defined(USE_SOFT_I2C_MASTER)
-
-#  if defined (ARDUINO_ARCH_AVR) // Other platforms do not have this new function
-    do {
-        Wire.beginTransmission(aI2CAddress);
-        if (Wire.getWireTimeoutFlag()) {
-            aSerial->println(F("Timeout accessing I2C bus. Wait for bus becoming available"));
-            Wire.clearWireTimeoutFlag();
-            delay(100);
-        } else {
-            break;
-        }
-    } while (true);
-#  else
-    Wire.beginTransmission(aI2CAddress);
-#  endif
-
-    uint8_t tWireReturnCode = Wire.endTransmission(true);
-    if (tWireReturnCode == 0) {
-        aSerial->print(F("Found"));
-    } else {
-        aSerial->print(F("Error code="));
-        aSerial->print(tWireReturnCode);
-        aSerial->print(F(". Communication with I2C was successful, but found no"));
-        tRetValue = true;
-    }
-    aSerial->print(F(" I2C device attached at address: 0x"));
-    aSerial->println(aI2CAddress, HEX);
-#endif // defined(USE_SOFT_I2C_MASTER)
-
-    if (tRetValue) {
-        aSerial->println(F("PCA9685 expander not connected"));
-    }
-    return tRetValue;
-}
-# endif // defined(USE_PCA9685_SERVO_EXPANDER)
 
 #if defined(LOCAL_DEBUG)
 #undef LOCAL_DEBUG
